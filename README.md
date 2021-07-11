@@ -1,10 +1,13 @@
 # QuickRadixSort
 
 Copyright: stew675@gmail.com
+
 Author: stew675@gmail.com
+
 Date: 11 July 2021
 
 Email stew675@gmail.com for permission to use for commercial purposes
+
 Free for use for educational purposes
 
 Just a day spent doodling about, refreshing self on implementing radix sorts and then seeing if
