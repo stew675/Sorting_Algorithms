@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
-#include <sys/time.h>
+#include <time.h>
 
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 
@@ -47,7 +47,7 @@ main(int argc, char **argv)
 {
 	int		numels, i;
 	uint32_t	*data;
-	struct	timeval start, end;
+	struct timespec start, end;
 	double	tim;
 	int sort_type = 0;
 
@@ -87,15 +87,19 @@ main(int argc, char **argv)
 	switch(sort_type) {
 	case 0:
 		printf("Using glibc qsort\n");
-		gettimeofday(&start, NULL);
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
 		qsort(data, numels, sizeof(*data), compar);
-		gettimeofday(&end, NULL);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
 		break;
 	case 1:
 		printf("Using quick-radix-sort\n");
-		gettimeofday(&start, NULL);
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
 		qrsort((char *)data, numels, sizeof(*data), get_key);
-		gettimeofday(&end, NULL);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
 		break;
 	default:
 		fprintf(stderr, "Invalid sort type specified\n");
@@ -104,8 +108,8 @@ main(int argc, char **argv)
 	}
 
 
-	tim = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("Time taken : %.6fs\n", tim);
+	tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+	printf("Time taken : %.9fs\n", tim);
 
 	testsort(data, numels);
 

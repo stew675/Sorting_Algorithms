@@ -48,23 +48,33 @@
 #define __ITERATIVE
 
 #ifdef __ITERATIVE
+
+struct stack {
+	char	 *ps;
+	char	 *pe;
+	uint32_t msb;
+};
+
 // We only add to the stack when absolutely necessary, otherwise we try to remain iterative where possible
 static void
 _qrsort(register char *ps, register char *pe, register size_t es, register uint32_t (*getkey)(), register uint32_t msb)
 {
-	register uint32_t mask, qpos = 1;
+	register uint32_t mask, stkpos = 0;
 	register char *sps, *epe;
-	char *q_ps[32], *q_pe[32];
-	uint32_t q_msb[32];
+	struct stack stk[32];
 
+	// We could push our starting parameters onto the stack, and pop them off again, OR we can just get straight to it!
 	goto _rqsort_restart;
 
-	for (; qpos > 0; qpos--) {
-		ps = q_ps[qpos];
-		pe = q_pe[qpos];
-		msb = q_msb[qpos];
+	while (stkpos > 0) {
+		// Pop our loop parameters from the stack
+		--stkpos;
+		ps = stk[stkpos].ps;
+		pe = stk[stkpos].pe;
+		msb = stk[stkpos].msb;
 
-_rqsort_restart:
+_rqsort_restart:	// Allows us to restart the loop without popping values from the stack
+
 		sps = ps;
 		epe = pe;
 
@@ -100,7 +110,7 @@ _rqsort_restart:
 			if ((pe -= es) == ps) break;
 		}
 _rqsort_stop_inner:
-		// Pop next item on stack if this partition is now fully sorted
+		// Pop off the next item on stack if this partition is now fully sorted
 		if (msb == 0) {
 			continue;
 		}
@@ -115,10 +125,10 @@ _rqsort_stop_inner:
 
 		if (pe < epe) {			// Only do right partition if there's 2 or more elements
 			if (ps > sps) {		// Only do left partition if there's 2 or more elements
-				q_ps[qpos] = pe;
-				q_pe[qpos] = epe;
-				q_msb[qpos] = msb;
-				qpos++;
+				stk[stkpos].ps = pe;
+				stk[stkpos].pe = epe;
+				stk[stkpos].msb = msb;
+				stkpos++;
 
 				// _rqsort(sps, ps, es, getkey, scanbits, msb);
 				pe = ps;
