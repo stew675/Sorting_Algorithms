@@ -49,7 +49,7 @@
 
 #ifdef __ITERATIVE
 
-struct stack {
+struct stack_node {
 	char	 *ps;
 	char	 *pe;
 	uint32_t msb;
@@ -57,14 +57,14 @@ struct stack {
 
 // We only add to the stack when absolutely necessary, otherwise we try to remain iterative where possible
 static void
-_qrsort(register char *ps, register char *pe, register size_t es, register uint32_t (*getkey)(), register uint32_t msb)
+_qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(), uint32_t msb)
 {
 	register uint32_t mask, stkpos = 0;
 	register char *sps, *epe;
-	struct stack stk[32];
+	struct stack_node stk[32];
 
 	// We could push our starting parameters onto the stack, and pop them off again, OR we can just get straight to it!
-	goto _rqsort_restart;
+	goto _qrsort_restart;
 
 	while (stkpos > 0) {
 		// Pop our loop parameters from the stack
@@ -73,8 +73,7 @@ _qrsort(register char *ps, register char *pe, register size_t es, register uint3
 		pe = stk[stkpos].pe;
 		msb = stk[stkpos].msb;
 
-_rqsort_restart:	// Allows us to restart the loop without popping values from the stack
-
+_qrsort_restart:	// Allows us to restart the loop without popping values from the stack
 		sps = ps;
 		epe = pe;
 
@@ -94,29 +93,27 @@ _rqsort_restart:	// Allows us to restart the loop without popping values from th
 			continue;
 		}
 
-		mask = ((uint32_t)1) << msb;
-
 		// Radix sort the current partition
+		mask = ((uint32_t)1) << msb;
 		for (;;) {
 			// Sort based upon the current radix mask
 			while (!(getkey(ps) & mask))
-				if ((ps += es) == pe) goto _rqsort_stop_inner;
+				if ((ps += es) == pe) goto _qrsort_stop_inner;
 			while (getkey(pe) & mask)
-				if ((pe -= es) == ps) goto _rqsort_stop_inner;
+				if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
 			swap (ps, pe, es);
 
 			if ((ps += es) == pe) break;
 			if ((pe -= es) == ps) break;
 		}
-_rqsort_stop_inner:
+
+_qrsort_stop_inner:
 		// Pop off the next item on stack if this partition is now fully sorted
-		if (msb == 0) {
-			continue;
-		}
+		if (msb == 0) { continue; }
 		msb--;
 
-		// ps == pe.  Adjust their position according to what they're pointing at
+		// ps == pe so adjust their position according to what they're pointing at
 		if (getkey(ps) & mask)  {
 			if (ps > sps) ps -= es;
 		} else {
@@ -138,12 +135,12 @@ _rqsort_stop_inner:
 				ps = pe;
 				pe = epe;
 			}
-			goto _rqsort_restart;
+			goto _qrsort_restart;
 		} else if (ps > sps) {		// Only do left partition if there's 2 or more elements
 			// _rqsort(sps, ps, es, getkey, scanbits, msb);
 			pe = ps;
 			ps = sps;
-			goto _rqsort_restart;
+			goto _qrsort_restart;
 		}
 	}
 } // _qrsort
@@ -151,10 +148,14 @@ _rqsort_stop_inner:
 #else
 
 static void
-_qrsort(register char *ps, register char *pe, register size_t es, register uint32_t (*getkey)(), uint32_t msb)
+_qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(), uint32_t msb)
 {
-	register uint32_t mask = ((uint32_t)1) << msb;
-	char *sps = ps, *epe = pe;
+	register uint32_t mask;
+	register char *sps, *epe;
+
+_qrsort_restart:	// Allows us to restart the loop without popping values from the stack
+	sps = ps;
+	epe = pe;
 
 	// Do selection sort on partitions <= __SELECT_THRESH elements in size
 	if (((pe - ps) / es) <= __SELECT_THRESH) {
@@ -173,12 +174,13 @@ _qrsort(register char *ps, register char *pe, register size_t es, register uint3
 	}
 
 	// Radix sort the current partition
+	mask = ((uint32_t)1) << msb;
 	for (;;) {
 		// Sort based upon the current radix mask
 		while (!(getkey(ps) & mask))
-			if ((ps += es) == pe) goto _rqsort_inner_stop;
+			if ((ps += es) == pe) goto _qrsort_stop_inner;
 		while (getkey(pe) & mask)
-			if ((pe -= es) == ps) goto _rqsort_inner_stop;
+			if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
 		swap (ps, pe, es);
 
@@ -186,29 +188,32 @@ _qrsort(register char *ps, register char *pe, register size_t es, register uint3
 		if ((pe -= es) == ps) break;
 	}
 
-_rqsort_inner_stop:
-
+_qrsort_stop_inner:
 	// Return now if this partition is fully sorted
-	if (msb == 0) {
-		return;
-	}
+	if (msb == 0) { return; }
 	msb--;
 
-	// ps == pe.  Adjust their position according to what they're pointing at
+	// ps == pe so adjust their position according to what they're pointing at
 	if (getkey(ps) & mask)  {
 		if (ps > sps) ps -= es;
 	} else {
 		if (pe < epe) pe += es;
 	}
 
-	// Only do left partition if there's 2 or more elements
-	if (ps > sps) {
-		_qrsort(sps, ps, es, getkey, msb);
-	}
-
-	// Only do right partition if there's 2 or more elements
-	if (pe < epe) {
-		_qrsort(pe, epe, es, getkey, msb);
+	if (ps > sps) {			// Only do left partition if there's 2 or more elements
+		if (pe < epe) {		// Only do right partition if there's 2 or more elements
+			_qrsort(sps, ps, es, getkey, msb);
+			ps = pe;
+			pe = epe;
+		} else {
+			pe = ps;
+			ps = sps;
+		}
+		goto _qrsort_restart;
+	} else if (pe < epe) {		// Only do right partition if there's 2 or more elements
+		ps = pe;
+		pe = epe;
+		goto _qrsort_restart;
 	}
 } // _qrsort
 #endif
