@@ -7,15 +7,17 @@
 #include <time.h>
 
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
+extern void shaker_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
-get_key(const void *a)
+get_key(register const void *a)
 {
         return *((uint32_t *)a);
 } // get_key
 
 int
-compar(const void *p1, const void *p2)
+compar(register const void *p1, register const void *p2)
 {
 	register const uint32_t *a = (const uint32_t *)p1;
 	register const uint32_t *b = (const uint32_t *)p2;
@@ -42,6 +44,14 @@ testsort(uint32_t a[], int numels)
 } /* testsort */
 
 
+void
+usage(char *prog)
+{
+	fprintf(stderr, "Usage: %s <-qs|-qr|-ss|-rs> numels\n", prog);
+	exit(-1);
+} // usage
+
+
 int
 main(int argc, char **argv)
 {
@@ -49,22 +59,26 @@ main(int argc, char **argv)
 	uint32_t	*data;
 	struct timespec start, end;
 	double	tim;
-	int sort_type = 0;
+	int sort_type = -1;
 
 	if(argc != 3) {
-		fprintf(stderr, "Usage: %s <-q|-r> numels\n", argv[0]);
-		exit(-1);
+		fprintf(stderr, "Incorrect number of argument\n");
+		usage(argv[0]);
 	}
 
-	if(strcmp(argv[1], "-q") && strcmp(argv[1], "-r") && strcmp(argv[1], "-i")) {
-		fprintf(stderr, "Usage: %s <-q|-r> numels\n", argv[0]);
-		exit(-1);
-	}
-
-	if(strcmp(argv[1], "-q") == 0)
+	if(strcmp(argv[1], "-qs") == 0)
 		sort_type = 0;
-	if(strcmp(argv[1], "-r") == 0)
+	if(strcmp(argv[1], "-qr") == 0)
 		sort_type = 1;
+	if(strcmp(argv[1], "-ss") == 0)
+		sort_type = 2;
+	if(strcmp(argv[1], "-rs") == 0)
+		sort_type = 3;
+
+	if (sort_type < 0) {
+		fprintf(stderr, "Unsupported sort type\n");
+		usage(argv[0]);
+	}
 
 	numels = atoi(argv[2]);
 	if (numels < 2) {
@@ -98,6 +112,22 @@ main(int argc, char **argv)
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
 		qrsort((char *)data, numels, sizeof(*data), get_key);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		break;
+	case 2:
+		printf("Using shaker sort\n");
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		shaker_sort(data, numels, sizeof(*data), compar);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		break;
+	case 3:
+		printf("Using rattle sort\n");
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		rattle_sort(data, numels, sizeof(*data), compar);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
