@@ -86,11 +86,12 @@ main(int argc, char **argv)
 		exit(-1);
 	}
 
-	if((data = (uint32_t *)calloc(numels, sizeof(*data))) == NULL)
-	{
+	data = (uint32_t *)aligned_alloc(4096, numels * sizeof(*data));
+	if(data == NULL) {
 		fprintf(stderr, "calloc failed - out of memory\n");
 		exit(-1);
 	}
+	memset(data, 0, numels * sizeof(*data));
 
 	printf("Populating array\n");
 	srandom(0);
