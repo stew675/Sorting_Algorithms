@@ -4,7 +4,7 @@
 void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
-	register char	*b, *c, *hi = a + (n - 1) * es;
+	register char	*b, *c, *e = a + (n - 1) * es;
 	register int	swaptype;
 
 	if (n < 2) return;
@@ -14,24 +14,28 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 	for (;;) {
 		// Forward sift
 		if ((n = (n * 13) / 17) < 2) break;
-		for (b = a, c = a + (n * es); c <= hi; b+=es, c+=es)
+		for (b = a, c = a + (n * es); c <= e; b+=es, c+=es)
 			if (cmp(b, c) > 0)
 				swap(b, c);
 
 		// Backward sift
 		if ((n = (n * 13) / 17) < 2) break;
-		for (b = hi, c = hi - (n * es); c >= a; b-=es, c-=es)
+		for (b = e, c = e - (n * es); c >= a; b-=es, c-=es)
 			if (cmp(b, c) < 0)
 				swap(b, c);
 	}
 
-	for (register char *pos;;) {
-		for (pos = NULL, b = a, c = a + es; c <= hi; b=c, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c); pos = b; }
-		if ((hi = pos) == NULL) break;
+	for (char *saved;;) {
+		// Forward sift
+		for (saved = a, b = a, c = a + es; c <= e; b=c, c+=es)
+			if (cmp(b, c) > 0) { swap(b, c); a = c; }
+		if (a == saved) break;
+		e = a; a = saved;
 
-		for (pos = NULL, b = hi, c = hi - es; c >= a; b=c, c-=es)
-			if (cmp(b, c) < 0) { swap(b, c); pos = b; }
-		if ((a = pos) == NULL) break;
+		// Backward sift
+		for (saved = e, b = e, c = e - es; c >= a; b=c, c-=es)
+			if (cmp(b, c) < 0) { swap(b, c); e = c; }
+		if (e == saved) break;
+		a = e; e = saved;
 	}
 } // rattle_sort

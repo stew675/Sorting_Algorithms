@@ -21,3 +21,22 @@ Of course like all radix sorts it has the restriction that keys must be of a fix
 
 It could expanded to 64 bit keys fairly easily
 
+./ts -qr 50000000
+Populating array
+Using quick-radix-sort
+Time taken : 4.392748111s
+
+./ts -nq 50000000
+Populating array
+Using new quick sort
+Time taken : 5.054120625s
+
+./ts -qs 50000000
+Populating array
+Using glibc qsort
+Time taken : 5.479669791s
+
+./ts -rs 50000000
+Populating array
+Using rattle sort
+Time taken : 6.826960173s
