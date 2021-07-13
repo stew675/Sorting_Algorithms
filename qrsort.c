@@ -16,6 +16,8 @@
 // Of course it has the restriction that keys must be of fixed unsigned 32-bit width
 // It could expanded to 64 bit keys fairly easily
 
+#include <stddef.h>
+#include <stdint.h>
 #include "swap.h"
 
 #define __SELECT_THRESH	 7

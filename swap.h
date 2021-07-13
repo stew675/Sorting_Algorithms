@@ -6,10 +6,6 @@
 // Set of handy macros for swapping things
 //
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-
 #define min(a,b)		\
    ({ __typeof__ (a) _a = (a);	\
        __typeof__ (b) _b = (b);	\
@@ -44,10 +40,9 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 	}
 } // swapfunc
 
-
-#define vecswap(a, b, n)				\
-	if (n > 0) {					\
-		swapfunc(a, b, n, swaptype);		\
+#define vecswap(a, b, n)			\
+	if (n > 0) {				\
+		swapfunc(a, b, n, swaptype);	\
 	}
 
 #define PVINIT(pv, pm)				\

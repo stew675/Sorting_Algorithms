@@ -1,11 +1,11 @@
-#include "swap.h"
+#include <stddef.h>
+#include "oldswap.h"
 
 void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
 	register char	*b, *c, *hi = a + (n - 1) * es;
 	register int	swaptype;
-	register WORD	t;
 
 	if (n < 2) return;
 

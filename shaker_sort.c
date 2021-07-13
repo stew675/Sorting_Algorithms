@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "swap.h"
 
 #define	SMULT	(0.467)	// Small es

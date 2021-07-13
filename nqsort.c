@@ -4,6 +4,7 @@
 //
 // It's basically a recursive version of modern glibc qsort
 
+#include <stddef.h>
 #include "swap.h"
 
 static char *
