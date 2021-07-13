@@ -1,47 +1,13 @@
-#include	<sys/types.h>
-#include        <stdint.h>
+#include "swap.h"
 
 #define	SMULT	(0.467)	// Small es
-
-#define swapcode(TYPE, parmi, parmj, n) { \
-	long i = (n) / sizeof (TYPE); \
-	register TYPE *pi = (TYPE *) (parmi); \
-	register TYPE *pj = (TYPE *) (parmj); \
-	do { \
-		register TYPE	t = *pi;	\
-		*pi++ = *pj;			\
-		*pj++ = t;			\
-        } while (--i > 0);	\
-}
-
-#define SWAPINIT(a, es) swaptype = ((char *)a - (char *)0) % sizeof(long) || \
-	es % sizeof(long) ? 2 : es == sizeof(long)? 0 : 1;
-
-static void
-swapfunc(a, b, n, swaptype)
-char *a, *b;
-int n, swaptype;
-{
-	if(swaptype <= 1) 
-		swapcode(long, a, b, n)
-	else
-		swapcode(char, a, b, n)
-}
-
-#define swap(a, b) \
-	if (swaptype == 0) { \
-		long t = *(long *)(a); \
-		*(long *)(a) = *(long *)(b); \
-		*(long *)(b) = t; \
-	} else { \
-		swapfunc(a, b, es, swaptype); \
-	}
 
 void
 _shaker_sort(char a[], int n, int es, int (*cmp)())
 {
-	register	char	*b, *c, *d, *e, *f, *hi;
-	register	int	stepsize, swaptype;
+	register char	*b, *c, *d, *e, *f, *hi;
+	register int	stepsize, swaptype;
+	register WORD t;
 
 	if(n <= 1)
 		return;

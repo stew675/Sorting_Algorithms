@@ -9,6 +9,7 @@
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void shaker_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
 get_key(register const void *a)
@@ -47,7 +48,7 @@ testsort(uint32_t a[], int numels)
 void
 usage(char *prog)
 {
-	fprintf(stderr, "Usage: %s <-qs|-qr|-ss|-rs> numels\n", prog);
+	fprintf(stderr, "Usage: %s <-nq|-qs|-qr|-rs|-ss> numels\n", prog);
 	exit(-1);
 } // usage
 
@@ -74,6 +75,8 @@ main(int argc, char **argv)
 		sort_type = 2;
 	if(strcmp(argv[1], "-rs") == 0)
 		sort_type = 3;
+	if(strcmp(argv[1], "-nq") == 0)
+		sort_type = 4;
 
 	if (sort_type < 0) {
 		fprintf(stderr, "Unsupported sort type\n");
@@ -129,6 +132,14 @@ main(int argc, char **argv)
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
 		rattle_sort(data, numels, sizeof(*data), compar);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		break;
+	case 4:
+		printf("Using new quick sort\n");
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		nqsort(data, numels, sizeof(*data), compar);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;

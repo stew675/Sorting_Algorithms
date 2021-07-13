@@ -16,31 +16,7 @@
 // Of course it has the restriction that keys must be of fixed unsigned 32-bit width
 // It could expanded to 64 bit keys fairly easily
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
-
-#define __do_swap(a, b, tmp, size)	\
-	do {				\
-		tmp = *a;		\
-		*a++ = *b;		\
-		*b++ = tmp;		\
-	} while (--size > 0)
-
-#define swap(a, b, size)					\
-	if (size & 0x11) {					\
-		register size_t __size = (size);		\
-		register char *__a = (a), *__b = (b);		\
-		register char __tmp;				\
-		__do_swap(__a, __b, __tmp, __size);		\
-	} else {						\
-		size_t __size = (size)>>2;			\
-		register uint32_t *__a = (uint32_t *)(a);	\
-		register uint32_t *__b = (uint32_t *)(b);	\
-		register uint32_t __tmp;			\
-		__do_swap(__a, __b, __tmp, __size);		\
-	}
-
+#include "swap.h"
 
 #define __SELECT_THRESH	 7
 
@@ -61,7 +37,11 @@ _qrsort(register char *ps, register char *pe, register const size_t es, register
 {
 	register uint32_t mask, stkpos = 0;
 	register char *sps, *epe;
+	register int swaptype;
+	register WORD t;
 	struct stack_node stk[32];
+
+	SWAPINIT(ps, es);
 
 	// We could push our starting parameters onto the stack, and pop them off again, OR we can just get straight to it!
 	goto _qrsort_restart;
@@ -87,7 +67,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 					}
 				}
 				if (smp != ps) {
-					swap(smp, ps, es);
+					swap(smp, ps);
 				}
 			}
 			continue;
@@ -102,7 +82,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 			while (getkey(pe) & mask)
 				if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
-			swap (ps, pe, es);
+			swap (ps, pe);
 
 			if ((ps += es) == pe) break;
 			if ((pe -= es) == ps) break;
@@ -152,6 +132,10 @@ _qrsort(register char *ps, register char *pe, register const size_t es, register
 {
 	register uint32_t mask;
 	register char *sps, *epe;
+	register int swaptype;
+	register WORD t;
+
+	SWAPINIT(ps, es);
 
 _qrsort_restart:	// Allows us to restart the loop without popping values from the stack
 	sps = ps;
@@ -167,7 +151,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 				}
 			}
 			if (smp != ps) {
-				swap(smp, ps, es);
+				swap(smp, ps);
 			}
 		}
 		return;
@@ -182,7 +166,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 		while (getkey(pe) & mask)
 			if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
-		swap (ps, pe, es);
+		swap (ps, pe);
 
 		if ((ps += es) == pe) break;
 		if ((pe -= es) == ps) break;
