@@ -34,7 +34,7 @@ For sorting unsigned 32-bit integers, the interative variant appears to be unifo
 regardless of the array size used. The recursive variant appears to 2-5% slower than the iterative variant.
 Of course like all radix sorts it has the restriction that keys must be of a fixed width, in this case being an unsigned 32-bit width.
 
-It could expanded to 64 bit keys fairly easily
+It could be expanded to handle 64 bit keys fairly easily
 
 # New QuickSort
 
