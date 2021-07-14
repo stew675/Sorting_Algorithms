@@ -41,7 +41,7 @@ _qrsort(register char *ps, register char *pe, register const size_t es, register
 	register char *sps, *epe;
 	register int swaptype;
 	register WORD t;
-	struct stack_node stk[32];
+	struct stack_node stk[msb];
 
 	SWAPINIT(ps, es);
 
@@ -204,15 +204,49 @@ _qrsort_stop_inner:
 } // _qrsort
 #endif
 
+
+static const uint32_t deBruijnMagic = 0x06EB14F9;
+static const uint8_t deBruijnTable[32] = {
+	0,  1, 16,  2, 29, 17,  3, 22, 30, 20, 18, 11, 13,  4,  7, 23,
+	31, 15, 28, 21, 19, 10, 12,  6, 14, 27,  9,  5, 26,  8, 25, 24,
+};
+
+static uint8_t
+getmsb(uint32_t v)
+{
+	// The following leaves us with just the highest bit set
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v -= (v >> 1);
+
+	// Return the index of the highest bit set
+	return deBruijnTable[(v * deBruijnMagic) >> 27];
+} // getmsb
+
 void
 qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)())
 {
+	uint32_t msb = 0;
+	register char *e = a + (es * (n - 1));
+
 	// Sanity check our parameters
 	if ((a == NULL) || (n < 2) || (es < 1) || (getkey == NULL)) {
 		return;
 	}
 
-	_qrsort(a, a + (es * (n - 1)), es, getkey, 31);
+	// Obtain a hint about the msb set of all keys in the data set
+	for (register char *b = a; b <= e; b += es) {
+		if (getmsb(getkey(b)) > msb) {
+			if ((msb = getmsb(getkey(b))) == 31) {
+				break;
+			}
+		}
+	}
+
+	_qrsort(a, e, es, getkey, msb);
 } // qrsort
 
 #undef __SELECT_THRESH

@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include "oldswap.h"
 
+#define MULT(x)    (((x)*13)/17)
+
 void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
@@ -9,8 +11,7 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 
 	if (n < 2)
 		return;
-
-	n = (n/3)+1;
+	n = n/2;
 
 	SWAPINIT(a, es);
 
@@ -20,13 +21,13 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 		for (b=a, c=a+(n*es); c<=e; b+=es, c+=es)
 			if (cmp(b, c) > 0)
 				swap(b, c);
-		if ((n=(n*13)/17) < 2) break;
+		if ((n=MULT(n)) < 2) break;
 
 		// Backward sift
 		for (b=e, c=e-(n*es); c>=a; b-=es, c-=es)
 			if (cmp(b, c) < 0)
 				swap(b, c);
-		if ((n=(n*13)/17) < 2) break;
+		if ((n=MULT(n)) < 2) break;
 	}
 
 	// 2-way bubble sort with closing ends to mop up any stragglers
