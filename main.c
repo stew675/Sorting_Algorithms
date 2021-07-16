@@ -5,16 +5,16 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <dlfcn.h>
 
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
-extern void shaker_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void rattle_sort(void *a, size_t n, uint32_t es, int (*cmp)());
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
 get_key(register const void *a)
 {
-        return *((uint32_t *)a);
+	return *((uint32_t *)a);
 } // get_key
 
 int
@@ -45,10 +45,56 @@ testsort(uint32_t a[], int numels)
 } /* testsort */
 
 
+#if 0
+void *
+load_rattle_sort()
+{
+	void *handle;
+	double (*cosine)(double);
+	void (*rattle_sort)(void *a, size_t n, size_t es, int (*cmp)());
+	char *error;
+
+	handle = dlopen("./rattle_sort.so", RTLD_NOW | RTLD_LOCAL);
+	if (!handle) {
+		fprintf(stderr, "%s\n", dlerror());
+		exit(EXIT_FAILURE);
+	}
+
+	dlerror();    /* Clear any existing error */
+
+	*(void **)(&rattle_sort) = dlsym(handle, "rattle_sort");
+
+	/*
+	According to the ISO C standard, casting between function
+	pointers and 'void *', as done above, produces undefined results.
+	POSIX.1-2003 and POSIX.1-2008 accepted this state of affairs and
+	roposed the following workaround:
+
+		  *(void **) (&cosine) = dlsym(handle, "cos");
+
+	This (clumsy) cast conforms with the ISO C standard and will
+	avoid any compiler warnings.
+
+	The 2013 Technical Corrigendum to POSIX.1-2008 (a.k.a.
+	POSIX.1-2013) improved matters by requiring that conforming
+	implementations support casting 'void *' to a function pointer.
+	Nevertheless, some compilers (e.g., gcc with the '-pedantic'
+	option) may complain about the cast used in this program.
+	*/
+
+	error = dlerror();
+	if (error != NULL) {
+		fprintf(stderr, "%s\n", error);
+		exit(EXIT_FAILURE);
+	}
+	return rattle_sort;
+}
+#endif
+
 void
 usage(char *prog)
 {
-	fprintf(stderr, "Usage: %s <-nq|-qs|-qr|-rs|-ss> numels\n", prog);
+	fprintf(stderr, "Usage: %s <-nq|-qs|-qr|-rs> numels\n", prog);
 	exit(-1);
 } // usage
 
@@ -71,8 +117,6 @@ main(int argc, char **argv)
 		sort_type = 0;
 	if(strcmp(argv[1], "-qr") == 0)
 		sort_type = 1;
-	if(strcmp(argv[1], "-ss") == 0)
-		sort_type = 2;
 	if(strcmp(argv[1], "-rs") == 0)
 		sort_type = 3;
 	if(strcmp(argv[1], "-nq") == 0)
@@ -99,6 +143,7 @@ main(int argc, char **argv)
 	printf("Populating array\n");
 	srandom(0);
 	for(i = 0; i < numels; i++) {
+//		data[i] = numels - i;
 		data[i] = random() % UINT32_MAX;
 	}
 
@@ -119,19 +164,11 @@ main(int argc, char **argv)
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
-	case 2:
-		printf("Using shaker sort\n");
-
-		clock_gettime(CLOCK_MONOTONIC, &start);
-		shaker_sort(data, numels, sizeof(*data), compar);
-		clock_gettime(CLOCK_MONOTONIC, &end);
-
-		break;
 	case 3:
 		printf("Using rattle sort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		rattle_sort(data, numels, sizeof(*data), compar);
+		rattle_sort(data, numels, (uint32_t)sizeof(*data), compar);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
