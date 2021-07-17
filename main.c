@@ -3,12 +3,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <math.h>
 #include <time.h>
-#include <dlfcn.h>
 
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
-extern void rattle_sort(void *a, size_t n, uint32_t es, int (*cmp)());
+extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
@@ -23,8 +21,8 @@ compar(register const void *p1, register const void *p2)
 	register const uint32_t *a = (const uint32_t *)p1;
 	register const uint32_t *b = (const uint32_t *)p2;
 
-	return (*a == *b) ? 0 : ((*a < *b) ? -1 : 1);
-}/*compar*/
+	return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
+} // compar
 
 
 void
@@ -42,54 +40,8 @@ testsort(uint32_t a[], int numels)
 		fprintf(stderr, "Didn't sort data correctly\n");
 		exit(-1);
 	}
-} /* testsort */
+} // testsort
 
-
-#if 0
-void *
-load_rattle_sort()
-{
-	void *handle;
-	double (*cosine)(double);
-	void (*rattle_sort)(void *a, size_t n, size_t es, int (*cmp)());
-	char *error;
-
-	handle = dlopen("./rattle_sort.so", RTLD_NOW | RTLD_LOCAL);
-	if (!handle) {
-		fprintf(stderr, "%s\n", dlerror());
-		exit(EXIT_FAILURE);
-	}
-
-	dlerror();    /* Clear any existing error */
-
-	*(void **)(&rattle_sort) = dlsym(handle, "rattle_sort");
-
-	/*
-	According to the ISO C standard, casting between function
-	pointers and 'void *', as done above, produces undefined results.
-	POSIX.1-2003 and POSIX.1-2008 accepted this state of affairs and
-	roposed the following workaround:
-
-		  *(void **) (&cosine) = dlsym(handle, "cos");
-
-	This (clumsy) cast conforms with the ISO C standard and will
-	avoid any compiler warnings.
-
-	The 2013 Technical Corrigendum to POSIX.1-2008 (a.k.a.
-	POSIX.1-2013) improved matters by requiring that conforming
-	implementations support casting 'void *' to a function pointer.
-	Nevertheless, some compilers (e.g., gcc with the '-pedantic'
-	option) may complain about the cast used in this program.
-	*/
-
-	error = dlerror();
-	if (error != NULL) {
-		fprintf(stderr, "%s\n", error);
-		exit(EXIT_FAILURE);
-	}
-	return rattle_sort;
-}
-#endif
 
 void
 usage(char *prog)
@@ -144,7 +96,7 @@ main(int argc, char **argv)
 	srandom(0);
 	for(i = 0; i < numels; i++) {
 //		data[i] = numels - i;
-		data[i] = random() % UINT32_MAX;
+		data[i] = random() % INT32_MAX;
 	}
 
 	switch(sort_type) {
@@ -168,7 +120,7 @@ main(int argc, char **argv)
 		printf("Using rattle sort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		rattle_sort(data, numels, (uint32_t)sizeof(*data), compar);
+		rattle_sort(data, numels, sizeof(*data), compar);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
