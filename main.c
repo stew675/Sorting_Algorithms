@@ -141,6 +141,12 @@ main(int argc, char **argv)
 
 	tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
 	printf("Time taken : %.9fs\n", tim);
+	printf(" ");
+	printf(" ");
+	printf(" ");
+	printf(" ");
+	printf(" ");
+	printf("\n");
 
 	testsort(data, numels);
 
