@@ -107,6 +107,7 @@ main(int argc, char **argv)
 	printf("Populating array\n");
 	srandom(0);
 	for(i = 0; i < numels; i++) {
+//		data[i] = i + 1;
 //		data[i] = numels - i;
 		data[i] = random() % INT32_MAX;
 	}
@@ -168,13 +169,8 @@ main(int argc, char **argv)
 
 
 	tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-	printf("Time taken : %.9fs\n", tim);
 	printf(" ");
-	printf(" ");
-	printf(" ");
-	printf(" ");
-	printf(" ");
-	printf("\n");
+	printf("\nTime taken : %.9fs\n", tim);
 
 	testsort(data, numels);
 
