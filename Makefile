@@ -10,10 +10,10 @@ CFLAGS=-I$(INCLUDES) $(DEBUG_FLAGS) $(OPT_FLAGS)
 LDFLAGS=$(DEBUG_FLAGS) $(OPT_FLAGS)
 
 _DEPS = swap.h oldswap.h
-DEPS = $(patsubst %,$(INCLUDES)/%,$(_DEPS))
+DEPS = Makefile $(patsubst %,$(INCLUDES)/%,$(_DEPS))
 
 OBJDIR=obj
-_OBJ = qrsort.o nqsort.o rattle_sort.o main.o
+_OBJ = qrsort.o nqsort.o comb_sort.o shell_sort.o rattle_sort.o main.o
 OBJ = $(patsubst %,$(OBJDIR)/%,$(_OBJ))
 
 $(OBJDIR)/%.o: %.c $(DEPS)

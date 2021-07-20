@@ -8,6 +8,16 @@
 
 typedef int WORD;
 
+#define copycode(TYPE, parmi, parmj, n) 		\
+{							\
+	register int i = (n) / sizeof (TYPE);		\
+	register TYPE *pi = (TYPE *) (parmi);		\
+	register TYPE *pj = (TYPE *) (parmj);		\
+	do {						\
+		*pi++ = *pj++;				\
+	} while (--i > 0);				\
+}
+
 #define swapcode(TYPE, parmi, parmj, n) 		\
 {							\
 	register int i = (n) / sizeof (TYPE);		\
@@ -23,6 +33,15 @@ typedef int WORD;
 #define SWAPINIT(a, es) swaptype = ((char *)a - (char *)0) % sizeof(int) || es % sizeof(int) ? 2 : es == sizeof(int)? 0 : 1;
 
 static void
+copyfunc(char *a, char *b, int n, int swaptype)
+{
+	if(swaptype <= 1)
+		copycode(int, a, b, n)
+	else
+		copycode(char, a, b, n)
+}
+
+static void
 swapfunc(char *a, char *b, int n, int swaptype)
 {
 	if(swaptype <= 1)
@@ -30,6 +49,13 @@ swapfunc(char *a, char *b, int n, int swaptype)
 	else
 		swapcode(char, a, b, n)
 }
+
+#define copy(a, b)					\
+	if (swaptype == 0) {				\
+		*(int *)(a) = *(int *)(b);		\
+	} else {					\
+		copyfunc(a, b, es, swaptype);		\
+	}
 
 #define swap(a, b)					\
 	if (swaptype == 0) {				\

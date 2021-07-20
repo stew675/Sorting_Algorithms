@@ -8,15 +8,17 @@
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
+extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
-get_key(register const void *a)
+get_uint32_key(register const void *a)
 {
 	return *((uint32_t *)a);
-} // get_key
+} // get_uint32_key
 
 int
-compar(register const void *p1, register const void *p2)
+compare_uint32(register const void *p1, register const void *p2)
 {
 	register const uint32_t *a = (const uint32_t *)p1;
 	register const uint32_t *b = (const uint32_t *)p2;
@@ -46,7 +48,13 @@ testsort(uint32_t a[], int numels)
 void
 usage(char *prog)
 {
-	fprintf(stderr, "Usage: %s <-nq|-qs|-qr|-rs> numels\n", prog);
+	fprintf(stderr, "Usage: %s <-cs|-nq|-qs|-qr|-rs> numels\n", prog);
+	fprintf(stderr, "\t-cs\tComb Sort\n");
+	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
+	fprintf(stderr, "\t-qs\tGlibc QuickSort\n");
+	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
+	fprintf(stderr, "\t-rs\tRattle Sort\n");
+	fprintf(stderr, "\t-ss\tShell Sort\n");
 	exit(-1);
 } // usage
 
@@ -73,6 +81,10 @@ main(int argc, char **argv)
 		sort_type = 3;
 	if(strcmp(argv[1], "-nq") == 0)
 		sort_type = 4;
+	if(strcmp(argv[1], "-cs") == 0)
+		sort_type = 5;
+	if(strcmp(argv[1], "-ss") == 0)
+		sort_type = 6;
 
 	if (sort_type < 0) {
 		fprintf(stderr, "Unsupported sort type\n");
@@ -104,7 +116,7 @@ main(int argc, char **argv)
 		printf("Using glibc qsort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		qsort(data, numels, sizeof(*data), compar);
+		qsort(data, numels, sizeof(*data), compare_uint32);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
@@ -112,7 +124,7 @@ main(int argc, char **argv)
 		printf("Using quick-radix-sort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		qrsort((char *)data, numels, sizeof(*data), get_key);
+		qrsort((char *)data, numels, sizeof(*data), get_uint32_key);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
@@ -120,7 +132,7 @@ main(int argc, char **argv)
 		printf("Using rattle sort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		rattle_sort(data, numels, sizeof(*data), compar);
+		rattle_sort(data, numels, sizeof(*data), compare_uint32);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
@@ -128,7 +140,23 @@ main(int argc, char **argv)
 		printf("Using new quick sort\n");
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		nqsort(data, numels, sizeof(*data), compar);
+		nqsort(data, numels, sizeof(*data), compare_uint32);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		break;
+	case 5:
+		printf("Using comb sort\n");
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		comb_sort(data, numels, sizeof(*data), compare_uint32);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		break;
+	case 6:
+		printf("Using shell sort\n");
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		shell_sort(data, numels, sizeof(*data), compare_uint32);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		break;
