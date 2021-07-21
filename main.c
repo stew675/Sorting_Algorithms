@@ -11,6 +11,7 @@ extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
 get_uint32_key(register const void *a)
@@ -31,9 +32,8 @@ compare_uint32(register const void *p1, register const void *p2)
 static void
 testsort(register uint32_t a[], register size_t n)
 {
-	n--;
-	for(register size_t i = 0; i < n; i++)
-		if(a[i] > a[i+1]) {
+	for(register size_t i = 1; i < n; i++)
+		if(a[i-1] > a[i]) {
 			fprintf(stderr, "Didn't sort data correctly\n");
 			exit(-1);
 		}
@@ -44,13 +44,14 @@ static void
 usage(char *prog)
 {
 	fprintf(stderr, "Usage: %s <-cs|-nq|-qs|-qr|-rs> numels\n", prog);
-	fprintf(stderr, "\t-bs\tBubble Sort\n");
-	fprintf(stderr, "\t-cs\tComb Sort\n");
+	fprintf(stderr, "\t-bb\tBidirectional Bubble Sort\n");
+	fprintf(stderr, "\t-bu\tBubble Sort\n");
+	fprintf(stderr, "\t-co\tComb Sort\n");
+	fprintf(stderr, "\t-gq\tGlibc QuickSort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
-	fprintf(stderr, "\t-qs\tGlibc QuickSort\n");
-	fprintf(stderr, "\t-rs\tRattle Sort\n");
-	fprintf(stderr, "\t-ss\tShell Sort\n");
+	fprintf(stderr, "\t-ra\tRattle Sort\n");
+	fprintf(stderr, "\t-sh\tShell Sort\n");
 	exit(-1);
 } // usage
 
@@ -68,27 +69,30 @@ main(int argc, char **argv)
 		usage(argv[0]);
 	}
 
-	if(strcmp(argv[1], "-qs") == 0) {
+	if(strcmp(argv[1], "-gq") == 0) {
 		sort = qsort;
 		sortname = "GLibC QuickSort";
 	} else if(strcmp(argv[1], "-qr") == 0) {
 		sort = qrsort;
 		sortname = "Quick Radix Sort";
-	} else if(strcmp(argv[1], "-rs") == 0) {
+	} else if(strcmp(argv[1], "-ra") == 0) {
 		sort = rattle_sort;
 		sortname = "Rattle Sort";
 	} else if(strcmp(argv[1], "-nq") == 0) {
 		sort = nqsort;
 		sortname = "New QuickSort";
-	} else if(strcmp(argv[1], "-cs") == 0) {
+	} else if(strcmp(argv[1], "-co") == 0) {
 		sort = comb_sort;
 		sortname = "Comb Sort";
-	} else if(strcmp(argv[1], "-ss") == 0) {
+	} else if(strcmp(argv[1], "-sh") == 0) {
 		sort = shell_sort;
 		sortname = "Shell Sort";
-	} if (strcmp(argv[1], "-bs") == 0) {
+	} else if (strcmp(argv[1], "-bu") == 0) {
 		sort = bubble_sort;
 		sortname = "Bubble Sort";
+	} else if (strcmp(argv[1], "-bb") == 0) {
+		sort = bidir_bubble_sort;
+		sortname = "Bidirectional Bubble Sort";
 	}
 
 	if (sort == NULL) {
@@ -129,6 +133,8 @@ main(int argc, char **argv)
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	double tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+	printf(" ");
+	printf(" ");
 	printf(" ");
 	printf(" ");
 	printf("\nTime taken : %.9fs\n", tim);
