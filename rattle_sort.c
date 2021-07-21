@@ -1,4 +1,6 @@
-// Rattle Sort
+//					Rattle Sort
+//
+// Altering Bubble Sort to be O(n log n) time complexity for the best, worst, and average cases.
 //
 // Author: Stew Forster (stew675@gmail.com)	Date: 19th July 2021
 //
@@ -12,19 +14,26 @@
 // The step-set implementation offers something of a twist to how step-sizes are generated.
 // Initially step-sizes are calculated as n/steps[pos] up until step exceeds sqrt(n), after
 // which point we reverse direction in the step-set and the step-dividers become the actual
-// step-sizes themselves.  This almost guarantees no set-size degeneracy for pretty much any
-// value of n, and therefore the input is almost always near-fully sorted by the time a
-// step-size of 1 is reached, after which the algorithm acts as a 2-way bubble sort and quickly
-// mops up positional stragglers
+// step-sizes themselves.  This guarantees no set-size degeneracy for pretty much any value
+// of n, and therefore the input is almost always near-fully sorted by the time a step-size
+// of 1 is reached, after which the algorithm acts as a 2-way bubble sort with collapsing
+// ends and quickly mops up any remaining positional stragglers
 //
 // As such the algorithm is O(n logn) where the log base is 1.333 and the number of compares
 // is uniform for all step sizes >1.  Technically, due to the final stage bubble-sort, the
-// algorithm is O(n^2) worst-case, but I have difficulty conceiving how such a worst-case
-// data set could be constructed given the sheer number of prime-based steps involved.  Values
-// would need to remain near invariant with respect to ther locality across a mind-boggingly
-// large greatest-common-multiple set to arrive at a poorly sorted set by the time we reach
-// the step=1 bubble-sort phase.  I have yet to personally witness anything other than O(n logn)
-// behavior for n>100 with time-variancy mostly occuring due to the number of swaps required
+// algorithm could be claimed to be O(n^2) in the worst-case, but I have difficulty conceiving
+// how such a worst-case data set could be constructed given the sheer number of prime-based
+// steps involved.  Values would need to remain near invariant with respect to ther locality
+// across a mind-boggingly large greatest-common-multiple set space to arrive at a poorly
+// sorted set by the time we reach the step=1 bubble-sort phase.  I have yet to personally
+// witness anything other than O(n logn) behavior for n>100 with time-variancy mostly occuring
+// due to the number of swaps required
+//
+// The results below demonstrate this effect.  I brute-forced every permutation for array
+// sizes up to 14 (15 and 16 still calculating) and the worst-case number of swaps does not
+// follow an O(n^2) sequence.  I experimentally hammered the algorithm with trillions of
+// input sets for larger values of n, and found that the worst-case number of swaps actually
+// approaches the average case as n is raised.
 //
 // Worst Case Brute-Force results in terms of total SWAPS required to sort
 // N	SWAPS	nPERM	AVG SW	nWORST	SAMPLE WORST CASE SET
@@ -61,23 +70,24 @@ static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 10
 void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
-	register char	*b, *c, *e = a + n * es;
-	register int	swaptype, swapped;
+	register char	*b, *c, *e = a + n * es, *s;
+	register int	swaptype;
 	size_t		step = n;
 	int		pos = 0;
 
 	SWAPINIT(a, es);
 
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
-	do {
-		for (step = next_step, b=a, c=a+(step*es), swapped = 0; c<e; b+=es, c+=es)
-			if ((cmp(b, c) > 0) && (swapped = 1))
-				swap(b, c);
+	for (;;) {
+		for (step = next_step, b=a, c=a+(step*es), s = a; c<e; b+=es, c+=es)
+			if (cmp(b, c) > 0) { swap(b, c); a = b; }
+		if (step == 1) { if (s == a) { return; } else { e = a; } }
+		a = s;
 
-		if (swapped || step > 1)
-			for (step = next_step, b=e-es, c=b-(step*es), swapped = 0; c>=a; b-=es, c-=es)
-				if ((cmp(b, c) < 0) && (swapped = 1))
-					swap(b, c);
-	} while (swapped || step > 1);
+		for (step = next_step, b=e-es, c=b-(step*es), s = e; c>=a; b-=es, c-=es)
+			if (cmp(b, c) < 0) { swap(b, c); e = b; }
+		if (step == 1) { if (s == e) { return; } else { a = e; } }
+		e = s;
+	}
 #undef next_step
 } // rattle_sort
