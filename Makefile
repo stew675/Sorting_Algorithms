@@ -1,20 +1,20 @@
-CC=gcc
+CC= gcc
 
-OPT_FLAGS=-O3
+OPT_FLAGS= -O3
 
-DEBUG_FLAGS=
+DEBUG_FLAGS =
 
-INCLUDES=include
+INCLUDES= include
 
-CFLAGS=-I$(INCLUDES) $(DEBUG_FLAGS) $(OPT_FLAGS)
-LDFLAGS=$(DEBUG_FLAGS) $(OPT_FLAGS)
+CFLAGS= -I$(INCLUDES) $(DEBUG_FLAGS) $(OPT_FLAGS)
+LDFLAGS= $(DEBUG_FLAGS) $(OPT_FLAGS)
 
-_DEPS = swap.h oldswap.h
-DEPS = Makefile $(patsubst %,$(INCLUDES)/%,$(_DEPS))
+_DEPS= swap.h oldswap.h
+DEPS= Makefile $(patsubst %,$(INCLUDES)/%,$(_DEPS))
 
-OBJDIR=obj
-_OBJ = rattle_sort.o bidir_bubble.o bubble_sort.o comb_sort.o nqsort.o qrsort.o shell_sort.o main.o
-OBJ = $(patsubst %,$(OBJDIR)/%,$(_OBJ))
+OBJDIR= obj
+_OBJ= rattle_sort.o bidir_bubble.o bubble_sort.o comb_sort.o nqsort.o qrsort.o shell_sort.o main.o
+OBJ= $(patsubst %,$(OBJDIR)/%,$(_OBJ))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<

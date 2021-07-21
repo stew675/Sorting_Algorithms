@@ -227,7 +227,7 @@ getmsb(uint32_t v)
 } // getmsb
 
 void
-qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)())
+qrsort(char *a, size_t n, size_t es, const uint32_t (*getkey)())
 {
 	uint32_t msb = 0;
 	register char *e = a + (es * (n - 1));
