@@ -130,6 +130,7 @@ main(int argc, char **argv)
 
 	double tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
 	printf(" ");
+	printf(" ");
 	printf("\nTime taken : %.9fs\n", tim);
 
 	testsort(a, n);
