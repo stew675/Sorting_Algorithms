@@ -57,8 +57,8 @@ Personally I found it to consistently run slower than the original paper's algor
 
 # rattle sort
 
-Time Complexity: *Observed* **O(n logn)** *Worst Case* **O(n^2)**
-Space Complexity: **0**   No extra space is needed, all operational variables are assigned to registers
+Time Complexity: *Observed* **O(n logn)** *Worst Case* **O(n log n)**
+Space Complexity: **O(1)**   Fixed space to hold progression sequence array
 
 I wouldn't even want to try to mathematically analyse the time complexity of this dark horse.  It's basically
 a bi-directional bubble-sort but with (initially) large offsets that decrease in size with each pass down to a
@@ -69,10 +69,10 @@ that very few (typically 1 to 4) 1-step passes are needed to complete the sortin
 
 It is unstable (in sorting terms)
 
-It is wholly in-place, iterative, and with zero space overhead
+It is wholly in-place, iterative, and with a fixed space overhead
 
 For arrays of 1000 elements or less, it is typically faster than *glibc qsort* but for data sets of 10K+ it is
-almost consistently 20-25% slower than *glibc qsort*
+almost consistently 10-20% slower than *glibc qsort*
 
 # Sample Runtimes
 
