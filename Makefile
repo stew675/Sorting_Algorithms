@@ -13,7 +13,7 @@ _DEPS = swap.h oldswap.h
 DEPS = Makefile $(patsubst %,$(INCLUDES)/%,$(_DEPS))
 
 OBJDIR=obj
-_OBJ = qrsort.o nqsort.o comb_sort.o shell_sort.o rattle_sort.o main.o
+_OBJ = bubble_sort.o qrsort.o nqsort.o comb_sort.o shell_sort.o rattle_sort.o main.o
 OBJ = $(patsubst %,$(OBJDIR)/%,$(_OBJ))
 
 $(OBJDIR)/%.o: %.c $(DEPS)

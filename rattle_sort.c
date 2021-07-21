@@ -80,12 +80,12 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	for (;;) {
 		for (step = next_step, b=a, c=a+(step*es), s = a; c<e; b+=es, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c); a = b; }
+			if (cmp(b, c) > 0) { swap(b, c); a = c; }
 		if (step == 1) { if (s == a) { return; } else { e = a; } }
 		a = s;
 
 		for (step = next_step, b=e-es, c=b-(step*es), s = e; c>=a; b-=es, c-=es)
-			if (cmp(b, c) < 0) { swap(b, c); e = b; }
+			if (cmp(b, c) < 0) { swap(b, c); e = c; }
 		if (step == 1) { if (s == e) { return; } else { a = e; } }
 		e = s;
 	}
