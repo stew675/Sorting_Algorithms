@@ -25,6 +25,28 @@
 // large greatest-common-multiple set to arrive at a poorly sorted set by the time we reach
 // the step=1 bubble-sort phase.  I have yet to personally witness anything other than O(n logn)
 // behavior for n>100 with time-variancy mostly occuring due to the number of swaps required
+//
+// Worst Case Brute-Force results in terms of total SWAPS required to sort
+// N	SWAPS	nPERM	AVG SW	nWORST	SAMPLE WORST CASE SET
+// 16		16!
+// 15		15!
+// 14	48	14!	20.605	  1	[12, 14, 6, 2, 11, 8, 5, 10, 13, 4, 1, 9, 7, 3]
+// 13	43	13!	18.413	 28	[4, 13, 5, 9, 7, 11, 3, 12, 2, 8, 6, 10, 1]
+// 12	41	12!	16.062	  1	[12, 6, 8, 2, 10, 4, 11, 5, 7, 1, 9, 3]
+// 11	29	11!	13.298	  6	[4, 11, 5, 8, 9, 3, 10, 2, 7, 6, 1]
+// 10	26	10!	11.195	  2	[10, 4, 7, 8, 3, 9, 2, 6, 5, 1]
+// 9	19	 9!	 9.206	  2	[8, 9, 2, 4, 7, 5, 1, 3, 6]
+// 8	20	 8!	 8.324	  1	[8, 4, 6, 2, 7, 3, 5, 1]
+// 7	14	 7!	 7.433	  9	[3, 7, 5, 2, 6, 4, 1]
+// 6	12	720	 5.500	  1	[6, 4, 2, 5, 3, 1]
+// 5	7	120	 3.800	  4	[3, 5, 2, 4, 1]
+// 4	5	24	 2.333	  1	[4, 2, 3, 1]
+// 3	3	6	 1.500	  1	[3, 2, 1]
+// 2	1	2	 0.500	  1	[2, 1]
+// 1	0	1	 0.000	  1	[1]
+//
+// Since the number of permutations is O(n!) then values for N above 16 become prohibitively
+// expensive to computationally brute-force to find the worst case set
 
 #include <stddef.h>
 #include "oldswap.h"
