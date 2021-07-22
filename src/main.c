@@ -43,7 +43,7 @@ testsort(register uint32_t a[], register size_t n)
 static void
 usage(char *prog)
 {
-	fprintf(stderr, "Usage: %s <-cs|-nq|-qs|-qr|-rs> numels\n", prog);
+	fprintf(stderr, "Usage: %s <-bb|-bu|-co|-gq|-nq|-qr|-ra|-sh> numels\n", prog);
 	fprintf(stderr, "\t-bb\tBidirectional Bubble Sort\n");
 	fprintf(stderr, "\t-bu\tBubble Sort\n");
 	fprintf(stderr, "\t-co\tComb Sort\n");
@@ -65,7 +65,7 @@ main(int argc, char **argv)
 	char		*sortname;
 
 	if(argc != 3) {
-		fprintf(stderr, "Incorrect number of argument\n");
+		fprintf(stderr, "Incorrect number of arguments\n");
 		usage(argv[0]);
 	}
 
