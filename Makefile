@@ -57,4 +57,4 @@ $(OBJDIR):
 
 clean:
 	rm -f $(OBJDIR)/*.o $(SRCDIR)/*~ core $(INCDIR)/*~ $(BIN)
-	(test -s $(OBJDIR) && rmdir $(OBJDIR)) || true
+	(test -d $(OBJDIR) && rmdir $(OBJDIR)) || true
