@@ -1,0 +1,118 @@
+//					MERGE SORT
+//
+// Author: Stew Forster (stew675@gmail.com)		Date: 23 July 2021
+//
+// My implementation of merge sort using N/2 extra space as required
+//
+// This version runs merge sort down to SORT_THRESH partition sizes, and
+// under those sizes, it will kick off an alternative sort algorithm.  For
+// this implementation, that is my version of Heap Sort, however any
+// general purpose sorting algorithm can be used.
+//
+// If it is desired to have the algorithm run as a pure merge sort, then
+// lower the SORT_THRESH value to 1 and it shall be so
+//
+// TODO: Investigate if using insertion or bubble sort is faster for small
+// values of SORT_THRESH
+
+#include <stddef.h>
+#include <stdlib.h>
+#include "oldswap.h"
+
+#define heapify(p)								\
+	for (l = p + (p - a) + es, max = p; l < e;) {				\
+		root = max;							\
+		r = l + es;							\
+		(cmp(l, max) > 0) && (max = l);					\
+		(r < e) && (cmp(r, max) > 0) && (max = r);			\
+		if (max == root) break;						\
+		l = max + (max - a) + es;					\
+		swap(root, max);						\
+	}
+
+// High speed heap sort
+static void
+_hs(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+{
+	register char *e=a+n*es, *max, *l, *r, *root;
+	register int swaptype;
+
+	SWAPINIT(a, es);
+
+	// Build the heap
+	for (register char *b=a+(n/2-1)*es; b>=a; b-=es)
+		heapify(b);
+ 
+	// The first element will always be the current maximum
+	// Swap it to the end and bring the end in by one element
+	// until we end up completely draining the heap
+	for (e-=es; e>a; e-=es) {
+		swap(a, e);
+		heapify(a);
+	}
+} // _hs
+
+extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+
+// For partition sizes equal to or smaller than this, we
+// invoke heap_sort to sort the rest of any partition
+#define SORT_THRESH	20000
+
+static void
+_ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void *, const void *), register char *c)
+{
+	if (n < 2)
+		return;
+
+	if (n <= SORT_THRESH)
+		return _hs(a, n, es, cmp);
+
+	register int swaptype;
+	SWAPINIT(a, es);
+
+	// Split array into 2
+	size_t an = (n + 1) / 2;
+	register char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
+
+	// Merge sort each sub-array
+	_ms(a, an, es, cmp, c);
+	_ms(b, n - an, es, cmp, c);
+
+	// Now merge the 2 sorted sub-arrays back into the a array
+
+	// Copy a to c
+	for (register char *d = c, *s = a; d < ce; d+=es, s+=es)
+		copy(d, s);
+	
+	// Now merge b and c into a
+	for (; b < be && c < ce; a+=es) {
+		if (cmp(b, c) < 0) {
+			copy(a, b); b+=es;
+		} else {
+			copy(a, c); c+=es;
+		}
+	}
+
+	// Copy any leftovers in c into a
+	for (; c<ce; a+=es, c+=es)
+		copy(a, c);
+} // _ms
+
+
+void
+merge_sort(char *a, size_t n, size_t es, const int (*cmp)(const void *, const void *))
+{
+	char *c = NULL;
+
+	if (n > SORT_THRESH) {
+		if ((c = malloc(((n+1)/2)*es)) == NULL) {
+			return;
+		}
+	}
+
+	_ms(a, n, es, cmp, c);
+
+	if (c != NULL) {
+		free(c);
+	}
+} // merge_sort

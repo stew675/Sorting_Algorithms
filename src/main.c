@@ -14,6 +14,8 @@ extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
 get_uint32_key(register const void *a)
@@ -32,14 +34,24 @@ compare_uint32(register const void *p1, register const void *p2)
 
 
 static void
-testsort(register uint32_t a[], register size_t n)
+print_array(register uint32_t a[], register size_t n)
+{
+	printf("%u", a[0]);
+	for(register size_t i = 1; i < n; i++)
+		printf(", %u", a[i]);
+	printf("\n");
+} // print_array
+
+
+static void
+test_sort(register uint32_t a[], register size_t n)
 {
 	for(register size_t i = 1; i < n; i++)
 		if(a[i-1] > a[i]) {
 			fprintf(stderr, "Didn't sort data correctly\n");
 			exit(-1);
 		}
-} // testsort
+} // test_sort
 
 
 static void
@@ -52,10 +64,12 @@ usage(char *prog)
 	fprintf(stderr, "\t-co\tComb Sort\n");
 	fprintf(stderr, "\t-gq\tGlibc QuickSort\n");
 	fprintf(stderr, "\t-hs\tHeap Sort\n");
+	fprintf(stderr, "\t-me\tMerge Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
 	fprintf(stderr, "\t-sh\tShell Sort\n");
+	fprintf(stderr, "\t-sm\tSmooth Sort\n");
 	exit(-1);
 } // usage
 
@@ -88,6 +102,12 @@ main(int argc, char **argv)
 	} else if(strcmp(argv[1], "-co") == 0) {
 		sort = comb_sort;
 		sortname = "Comb Sort";
+	} else if(strcmp(argv[1], "-me") == 0) {
+		sort = merge_sort;
+		sortname = "Merge Sort";
+	} else if(strcmp(argv[1], "-sm") == 0) {
+		sort = smooth_sort;
+		sortname = "Smooth Sort";
 	} else if(strcmp(argv[1], "-sh") == 0) {
 		sort = shell_sort;
 		sortname = "Shell Sort";
@@ -150,7 +170,7 @@ main(int argc, char **argv)
 	printf(" ");
 	printf("\nTime taken : %.9fs\n", tim);
 
-	testsort(a, n);
+	test_sort(a, n);
 
 	free(a);
 } /* main */

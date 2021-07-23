@@ -6,8 +6,6 @@
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
 
-typedef int WORD;
-
 #define copycode(TYPE, parmi, parmj, n) 		\
 {							\
 	register int i = (n) / sizeof (TYPE);		\

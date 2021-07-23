@@ -8,11 +8,13 @@ SRC=	bidir_bubble.c \
 	bishubble.c \
 	bubble_sort.c \
 	comb_sort.c \
-	heapsort.c \
+	heap_sort.c \
 	main.c \
 	nqsort.c \
 	qrsort.c \
 	rattle_sort.c \
+	merge_sort.c \
+	smooth_sort.c \
 	shell_sort.c
 
 INCDIR= include
@@ -30,7 +32,7 @@ BIN=ts
 ######################################################################################
 
 CC= gcc
-OPT_FLAGS= -O3 -march=native -mtune=native
+OPT_FLAGS= -O2 -march=native -mtune=native
 DEBUG_FLAGS= 
 LIBS=
 

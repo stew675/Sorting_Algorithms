@@ -15,13 +15,22 @@
 // this repository.  Even up to 400000 set sizes it is still faster than
 // any other general purpose sorting algorithm on the Zen 3 CPU
 //
-// Once we pass 1M elements though, it starts to fall behind every other
-// O(n log n) general purpose sort.  The inherently poor spatial locality
-// of the algorithm starts to thrash the CPU caches with such large data
-// sets
+// Once we exceed 1M elements though, it starts to fall behind the other
+// O(n log n) general purpose sorts.  The poor spatial locality of the
+// algorithm starts to thrash the CPU caches with such large data sets
 
 #include <stddef.h>
-#include "oldswap.h"
+
+#define swap(a, b, c)  								\
+	if (c == sizeof(int)) {					 		\
+		ti = *((int *)a);						\
+		*((int *)a) = *((int *)b);					\
+		*((int *)b) = ti;						\
+	} else {								\
+		register char *_a = (char *)(a), *_b = (char *)(b), tc;		\
+		register int k = (int)(c);					\
+		for (; k-- > 0; tc = *_a, *_a++ = *_b, *_b++ = tc, tc = *_a);	\
+	}
 
 #define heapify(p)								\
 	for (l = p + (p - a) + es, max = p; l < e;) {				\
@@ -31,16 +40,14 @@
 		(r < e) && (cmp(r, max) > 0) && (max = r);			\
 		if (max == root) break;						\
 		l = max + (max - a) + es;					\
-		swap(root, max);						\
+		swap(root, max, es);						\
 	}
 
 void
-heap_sort(char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+heap_sort(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
 {
 	register char *e=a+n*es, *max, *l, *r, *root;
-	register int swaptype;
-
-	SWAPINIT(a, es);
+	register int ti;	// Temporary integer is used by the swap macro
 
 	// Build the heap
 	for (register char *b=a+(n/2-1)*es; b>=a; b-=es)
@@ -50,7 +57,7 @@ heap_sort(char *a, size_t n, register size_t es, register const int (*cmp)(const
 	// Swap it to the end and bring the end in by one element
 	// until we end up completely draining the heap
 	for (e-=es; e>a; e-=es) {
-		swap(a, e);
+		swap(a, e, es);
 		heapify(a);
 	}
-}
+} // heap_sort
