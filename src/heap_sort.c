@@ -1,6 +1,6 @@
-//					HEAP SORT
+//				HEAP SORT
 //
-// Author: Stew Forster (stew675@gmail.com)
+// Author: Stew Forster (stew675@gmail.com)	Date: 23 July 2021
 //
 // My purely iterative implementation of the classic heap sort algorithm
 //
@@ -20,17 +20,12 @@
 // algorithm starts to thrash the CPU caches with such large data sets
 
 #include <stddef.h>
+#include "newswap.h"
 
-#define swap(a, b, c)  								\
-	if (c == sizeof(int)) {					 		\
-		ti = *((int *)a);						\
-		*((int *)a) = *((int *)b);					\
-		*((int *)b) = ti;						\
-	} else {								\
-		register char *_a = (char *)(a), *_b = (char *)(b), tc;		\
-		register int k = (int)(c);					\
-		for (; k-- > 0; tc = *_a, *_a++ = *_b, *_b++ = tc, tc = *_a);	\
-	}
+void
+heap_sort(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+{
+	register char *e=a+n*es, *max, *l, *r, *root;
 
 #define heapify(p)								\
 	for (l = p + (p - a) + es, max = p; l < e;) {				\
@@ -43,16 +38,10 @@
 		swap(root, max, es);						\
 	}
 
-void
-heap_sort(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
-{
-	register char *e=a+n*es, *max, *l, *r, *root;
-	register int ti;	// Temporary integer is used by the swap macro
-
 	// Build the heap
 	for (register char *b=a+(n/2-1)*es; b>=a; b-=es)
 		heapify(b);
- 
+
 	// The first element will always be the current maximum
 	// Swap it to the end and bring the end in by one element
 	// until we end up completely draining the heap
@@ -60,4 +49,5 @@ heap_sort(register char *a, size_t n, register size_t es, register const int (*c
 		swap(a, e, es);
 		heapify(a);
 	}
+#undef heapify
 } // heap_sort

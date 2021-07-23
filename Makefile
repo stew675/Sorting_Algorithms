@@ -3,12 +3,12 @@
 # SRC = all source objects we want included in the final executable
 ######################################################################################
 
-DEP=	swap.h oldswap.h
-SRC=	bidir_bubble.c \
+DEP=	swap.h oldswap.h newswap.h
+SRC=	heap_sort.c \
+	bidir_bubble.c \
 	bishubble.c \
 	bubble_sort.c \
 	comb_sort.c \
-	heap_sort.c \
 	main.c \
 	nqsort.c \
 	qrsort.c \
