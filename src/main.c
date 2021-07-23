@@ -5,13 +5,15 @@
 #include <unistd.h>
 #include <time.h>
 
+extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 static uint32_t
 get_uint32_key(register const void *a)
@@ -45,9 +47,11 @@ usage(char *prog)
 {
 	fprintf(stderr, "Usage: %s <-bb|-bu|-co|-gq|-nq|-qr|-ra|-sh> numels\n", prog);
 	fprintf(stderr, "\t-bb\tBidirectional Bubble Sort\n");
+	fprintf(stderr, "\t-bi\tBidirectional Bubble Shell Sort\n");
 	fprintf(stderr, "\t-bu\tBubble Sort\n");
 	fprintf(stderr, "\t-co\tComb Sort\n");
 	fprintf(stderr, "\t-gq\tGlibc QuickSort\n");
+	fprintf(stderr, "\t-hs\tHeap Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
@@ -90,6 +94,12 @@ main(int argc, char **argv)
 	} else if (strcmp(argv[1], "-bu") == 0) {
 		sort = bubble_sort;
 		sortname = "Bubble Sort";
+	} else if (strcmp(argv[1], "-bi") == 0) {
+		sort = bishubble_sort;
+		sortname = "Bidirectional Bubble Shell Sort";
+	} else if (strcmp(argv[1], "-hs") == 0) {
+		sort = heap_sort;
+		sortname = "Heap Sort";
 	} else if (strcmp(argv[1], "-bb") == 0) {
 		sort = bidir_bubble_sort;
 		sortname = "Bidirectional Bubble Sort";

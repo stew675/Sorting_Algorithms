@@ -5,8 +5,10 @@
 
 DEP=	swap.h oldswap.h
 SRC=	bidir_bubble.c \
+	bishubble.c \
 	bubble_sort.c \
 	comb_sort.c \
+	heapsort.c \
 	main.c \
 	nqsort.c \
 	qrsort.c \
@@ -28,8 +30,8 @@ BIN=ts
 ######################################################################################
 
 CC= gcc
-OPT_FLAGS= -O3
-DEBUG_FLAGS=
+OPT_FLAGS= -O3 -march=native -mtune=native
+DEBUG_FLAGS= 
 LIBS=
 
 ######################################################################################
@@ -39,7 +41,7 @@ LIBS=
 CFLAGS= -I$(INCDIR) $(DEBUG_FLAGS) $(OPT_FLAGS)
 LDFLAGS= $(DEBUG_FLAGS) $(OPT_FLAGS)
 
-DEPS= $(patsubst %,$(INCDIR)/%,$(DEP))
+DEPS= $(patsubst %,$(INCDIR)/%,$(DEP)) Makefile
 
 _OBJ=$(SRC:.c=.o)
 OBJ= $(patsubst %,$(OBJDIR)/%,$(_OBJ))
