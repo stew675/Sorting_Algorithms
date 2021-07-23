@@ -146,6 +146,8 @@ main(int argc, char **argv)
 	printf(" ");
 	printf(" ");
 	printf(" ");
+	printf(" ");
+	printf(" ");
 	printf("\nTime taken : %.9fs\n", tim);
 
 	testsort(a, n);
