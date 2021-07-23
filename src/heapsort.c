@@ -2,7 +2,7 @@
 //
 // Author: Stew Forster (stew675@gmail.com)
 //
-// My purely iterative implementation of the class heap sort algorithm
+// My purely iterative implementation of the classic heap sort algorithm
 //
 // The ordering of everything as it appears in the macro is absolutely
 // critical to achieve the greatest speed.  I deliberately interleaved
