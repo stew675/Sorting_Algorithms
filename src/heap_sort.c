@@ -39,8 +39,9 @@ heap_sort(register char *a, size_t n, register size_t es, register const int (*c
 	}
 
 	// Build the heap
-	for (register char *b=a+(n/2-1)*es; b>=a; b-=es)
+	for (register char *b=a+(n/2-1)*es; b>=a; b-=es) {
 		heapify(b);
+	}
 
 	// The first element will always be the current maximum
 	// Swap it to the end and bring the end in by one element

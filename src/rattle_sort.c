@@ -97,7 +97,7 @@
 //	  11	  5	   29	11.298	* Results perfectly match exhaustive brute force observation
 
 #include <stddef.h>
-#include "oldswap.h"
+#include "newswap.h"
 
 // 4/3 => 1.333333333333
 // Best overall balanced performance.  The 4294967295 value acts as a sentinel.  This step set supports
@@ -110,21 +110,18 @@ void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
 	register char	*b, *c, *e = a + n * es, *s;
-	register int	swaptype;
 	size_t		step = n;
 	int		pos = 0;
-
-	SWAPINIT(a, es);
 
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	for (;;) {
 		for (step = next_step, b=a, c=a+(step*es), s = a; c<e; b+=es, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c); a = c; }
+			if (cmp(b, c) > 0) { swap(b, c, es); a = c; }
 		if (step == 1) { if (s == a) { return; } else { e = a; } }
 		a = s;
 
 		for (step = next_step, b=e-es, c=b-(step*es), s = e; c>=a; b-=es, c-=es)
-			if (cmp(b, c) < 0) { swap(b, c); e = c; }
+			if (cmp(b, c) < 0) { swap(b, c, es); e = c; }
 		if (step == 1) { if (s == e) { return; } else { a = e; } }
 		e = s;
 	}

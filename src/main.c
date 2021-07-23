@@ -163,8 +163,6 @@ main(int argc, char **argv)
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	double tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-	printf(" ");
-	printf(" ");
 	printf("\nTime taken : %.9fs\n", tim);
 
 	test_sort(a, n);

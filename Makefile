@@ -32,7 +32,7 @@ BIN=ts
 ######################################################################################
 
 CC= gcc
-OPT_FLAGS= -O2 -march=native -mtune=native
+OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
 DEBUG_FLAGS= 
 LIBS=
 
