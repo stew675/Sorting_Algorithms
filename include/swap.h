@@ -1,6 +1,9 @@
 #ifndef SWAP_H
 #define SWAP_H
 
+#include <stdint.h>
+extern uint64_t numswaps;
+
 // swap.h
 //
 // Set of handy macros for swapping things
@@ -21,12 +24,17 @@ typedef int WORD;
 	(t = a, a = b, b = t)
 
 #define swap(a, b)					\
-	swaptype != 0 ? swapfunc(a, b, es, swaptype) :	\
-	(void)exch(*(WORD*)(a), *(WORD*)(b), t)
+	if (swaptype) {					\
+		swapfunc(a, b, es, swaptype);		\
+	} else {					\
+		numswaps++;				\
+		(void)exch(*(WORD*)(a), *(WORD*)(b), t);\
+	}
 
 static void
 swapfunc(char *a, char *b, size_t n, int swaptype)
 {
+	numswaps++;
 	if (swaptype <= 1) {
 		WORD t;
 		for( ; n > 0; a += W, b += W, n -= W) {

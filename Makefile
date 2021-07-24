@@ -14,7 +14,10 @@ SRC=	heap_sort.c \
 	qrsort.c \
 	rattle_sort.c \
 	merge_sort.c \
+	heap_merge.c \
 	smooth_sort.c \
+	grail_sort.c \
+	weak_heap.c \
 	shell_sort.c
 
 INCDIR= include

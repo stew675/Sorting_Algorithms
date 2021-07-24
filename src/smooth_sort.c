@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "newswap.h"
 
 static inline int a_ctz_32(uint32_t x)
 {
@@ -68,21 +69,10 @@ static inline int pntz(size_t p[2]) {
 	return 0;
 }
 
+/*
 #define copy(a, b, c)	\
 	if (c == sizeof(int)) {						\
 		*((int *)a) = *((int *)b);				\
-	} else {							\
-		register char *_a = (char *)(a);			\
-		register char *_b = (char *)(b);			\
-		for (register int k = (c); k-- > 0; *_a++ = *_b++);	\
-	}
-
-/*
-#define mcopy(a, b, c)	\
-	if (c == sizeof(int)) {						\
-		register int t = *((int *)a);				\
-		*((int *)a) = *((int *)b);				\
-		*((int *)b) = t;					\
 	} else {							\
 		register char *_a = (char *)(a);			\
 		register char *_b = (char *)(b);			\

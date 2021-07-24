@@ -97,6 +97,7 @@
 //	  11	  5	   29	11.298	* Results perfectly match exhaustive brute force observation
 
 #include <stddef.h>
+#include <stdint.h>
 #include "newswap.h"
 
 // 4/3 => 1.333333333333

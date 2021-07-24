@@ -20,6 +20,7 @@
 // algorithm starts to thrash the CPU caches with such large data sets
 
 #include <stddef.h>
+#include <stdint.h>
 #include "newswap.h"
 
 void

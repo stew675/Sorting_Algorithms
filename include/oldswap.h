@@ -1,6 +1,9 @@
 #ifndef OLDSWAP_H
 #define OLDSWAP_H
 
+#include <stdint.h>
+extern uint64_t numswaps, numcopies;
+
 #define min(a,b)                \
    ({ __typeof__ (a) _a = (a);  \
        __typeof__ (b) _b = (b); \
@@ -33,6 +36,7 @@
 static void
 copyfunc(char *a, char *b, int n, int swaptype)
 {
+	numcopies++;
 	if(swaptype <= 1)
 		copycode(int, a, b, n)
 	else
@@ -42,6 +46,7 @@ copyfunc(char *a, char *b, int n, int swaptype)
 static void
 swapfunc(char *a, char *b, int n, int swaptype)
 {
+	numswaps++;
 	if(swaptype <= 1)
 		swapcode(int, a, b, n)
 	else
@@ -51,6 +56,7 @@ swapfunc(char *a, char *b, int n, int swaptype)
 #define copy(a, b)					\
 	if (swaptype == 0) {				\
 		*(int *)(a) = *(int *)(b);		\
+		numcopies++;				\
 	} else {					\
 		copyfunc(a, b, es, swaptype);		\
 	}
@@ -60,6 +66,7 @@ swapfunc(char *a, char *b, int n, int swaptype)
 		register int t = *(int *)(a);		\
 		*(int *)(a) = *(int *)(b);		\
 		*(int *)(b) = t;			\
+		numswaps++;				\
 	} else {					\
 		swapfunc(a, b, es, swaptype);		\
 	}
