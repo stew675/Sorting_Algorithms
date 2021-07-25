@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include "newswap.h"
 
+__attribute__((noinline))
 static void
 _is(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
@@ -79,8 +80,9 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 void
 insertion_merge(char *a, size_t n, size_t es, const int (*cmp)(const void *, const void *))
 {
-	if (n <= SORT_THRESH)
+	if (n <= SORT_THRESH) {
 		return _is(a, n, es, cmp);
+	}
 
 	char *c = NULL;
 

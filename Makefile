@@ -10,6 +10,7 @@ SRC=	heap_sort.c \
 	bubble_sort.c \
 	comb_sort.c \
 	main.c \
+	aim_sort.c \
 	nqsort.c \
 	qrsort.c \
 	rattle_sort.c \
@@ -39,7 +40,7 @@ BIN=ts
 
 CC= gcc
 OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
-DEBUG_FLAGS= 
+DEBUG_FLAGS=
 LIBS=
 
 ######################################################################################

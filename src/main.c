@@ -19,6 +19,7 @@ static uint64_t numcmps = 0, numkeys = 0;
 uint64_t numswaps = 0, numcopies = 0;
 
 // Declarations of all the sort functions we support
+extern void aim_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -123,6 +124,11 @@ usage(char *prog, char *msg)
 void
 (*parse_sort_type(char *opt, char **sortname))()
 {
+	if (strcmp(opt, "-am") == 0) {
+		*sortname = "Adaptive Merge Sort";
+		return aim_sort;
+	}
+
 	if (strcmp(opt, "-bb") == 0) {
 		*sortname = "Bidirectional Bubble Sort";
 		return bidir_bubble_sort;
@@ -544,6 +550,11 @@ main(int argc, char *argv[])
 	printf("Number of Compares: %lu\n", numcmps);
 	printf("Number of Swaps   : %lu\n", numswaps);
 	printf("Number of Copies  : %lu\n", numcopies);
+	printf(" ");
+	printf(" ");
+	printf(" ");
+	printf(" ");
+	printf(" ");
 	printf("\n");
 
 	free(a);
