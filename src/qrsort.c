@@ -20,10 +20,16 @@
 #include <stdint.h>
 #include "swap.h"
 
-#define __SELECT_THRESH	 7
+extern uint64_t numcmps;
 
-// Iterative is faster than recursive by about 2%.  Not a huge difference, but it is consistent
-#define __ITERATIVE
+// Partition size thresh-hold where we do insertion sorting instead
+// Extensive empirical testing arrived at the below value which I
+// admit does seem particularly high, but it is what it is
+#define __INSERT_THRESH	 20
+
+// Iterative is faster on some architectures, slower on others.  Recursive is a safe bet all
+// around, but for absolute speed, choose iterative if it benefits your situation specifically
+//#define __ITERATIVE
 
 #ifdef __ITERATIVE
 
@@ -38,7 +44,7 @@ static void
 _qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(), uint32_t msb)
 {
 	register uint32_t mask, stkpos = 0;
-	register char *sps, *epe;
+	register char *sps, *spe;	// Saved Partition Start/End
 	register int swaptype;
 	register WORD t;
 	struct stack_node stk[msb];
@@ -56,24 +62,18 @@ _qrsort(register char *ps, register char *pe, register const size_t es, register
 		msb = stk[stkpos].msb;
 
 _qrsort_restart:	// Allows us to restart the loop without popping values from the stack
-		sps = ps;
-		epe = pe;
 
 		// Do selection sort on partitions <= __SELECT_THRESH elements in size
-		if (((pe - ps) / es) <= __SELECT_THRESH) {
-			for (ps = sps; ps < epe; ps += es) {
-				register char *smp;	// Smallest Pointer
-				for (smp = ps, pe = ps + es; pe <= epe; pe += es) {
-					if (getkey(pe) < getkey(smp)) {
-						smp = pe;
-					}
-				}
-				if (smp != ps) {
-					swap(smp, ps);
-				}
+		if (((pe - ps) / es) <= __INSERT_THRESH) {
+			for (sps=ps+es; sps <= pe; sps+=es) {
+				for(spe=sps; (spe>ps) && (getkey(spe) < getkey(spe-es)); spe-=es)
+					swap(spe, spe-es);
 			}
 			continue;
 		}
+
+		sps = ps;
+		spe = pe;
 
 		// Radix sort the current partition
 		mask = ((uint32_t)1) << msb;
@@ -84,7 +84,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 			while (getkey(pe) & mask)
 				if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
-			swap (ps, pe);
+			swap(ps, pe);
 
 			if ((ps += es) == pe) break;
 			if ((pe -= es) == ps) break;
@@ -99,13 +99,13 @@ _qrsort_stop_inner:
 		if (getkey(ps) & mask)  {
 			if (ps > sps) ps -= es;
 		} else {
-			if (pe < epe) pe += es;
+			if (pe < spe) pe += es;
 		}
 
-		if (pe < epe) {			// Only do right partition if there's 2 or more elements
+		if (pe < spe) {			// Only do right partition if there's 2 or more elements
 			if (ps > sps) {		// Only do left partition if there's 2 or more elements
 				stk[stkpos].ps = pe;
-				stk[stkpos].pe = epe;
+				stk[stkpos].pe = spe;
 				stk[stkpos].msb = msb;
 				stkpos++;
 
@@ -113,9 +113,9 @@ _qrsort_stop_inner:
 				pe = ps;
 				ps = sps;
 			} else {
-				// _rqsort(pe, epe, es, getkey, scanbits, msb);
+				// _rqsort(pe, spe, es, getkey, scanbits, msb);
 				ps = pe;
-				pe = epe;
+				pe = spe;
 			}
 			goto _qrsort_restart;
 		} else if (ps > sps) {		// Only do left partition if there's 2 or more elements
@@ -133,31 +133,23 @@ static void
 _qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(), uint32_t msb)
 {
 	register uint32_t mask;
-	register char *sps, *epe;
+	register char *sps, *spe;	// Saved Partition Start/End
 	register int swaptype;
 	register WORD t;
 
-	SWAPINIT(ps, es);
-
 _qrsort_restart:	// Allows us to restart the loop without popping values from the stack
-	sps = ps;
-	epe = pe;
 
 	// Do selection sort on partitions <= __SELECT_THRESH elements in size
-	if (((pe - ps) / es) <= __SELECT_THRESH) {
-		for (ps = sps; ps < epe; ps += es) {
-			register char *smp;	// Smallest Pointer
-			for (smp = ps, pe = ps + es; pe <= epe; pe += es) {
-				if (getkey(pe) < getkey(smp)) {
-					smp = pe;
-				}
-			}
-			if (smp != ps) {
-				swap(smp, ps);
-			}
+	if (((pe - ps) / es) <= __INSERT_THRESH) {
+		for (sps=ps+es; sps <= pe; sps+=es) {
+			for(spe=sps; (spe>ps) && (getkey(spe) < getkey(spe-es)); spe-=es)
+				swap(spe, spe-es);
 		}
 		return;
 	}
+
+	sps = ps;
+	spe = pe;
 
 	// Radix sort the current partition
 	mask = ((uint32_t)1) << msb;
@@ -168,7 +160,7 @@ _qrsort_restart:	// Allows us to restart the loop without popping values from th
 		while (getkey(pe) & mask)
 			if ((pe -= es) == ps) goto _qrsort_stop_inner;
 
-		swap (ps, pe);
+		swap(ps, pe);
 
 		if ((ps += es) == pe) break;
 		if ((pe -= es) == ps) break;
@@ -183,22 +175,22 @@ _qrsort_stop_inner:
 	if (getkey(ps) & mask)  {
 		if (ps > sps) ps -= es;
 	} else {
-		if (pe < epe) pe += es;
+		if (pe < spe) pe += es;
 	}
 
 	if (ps > sps) {			// Only do left partition if there's 2 or more elements
-		if (pe < epe) {		// Only do right partition if there's 2 or more elements
+		if (pe < spe) {		// Only do right partition if there's 2 or more elements
 			_qrsort(sps, ps, es, getkey, msb);
 			ps = pe;
-			pe = epe;
+			pe = spe;
 		} else {
 			pe = ps;
 			ps = sps;
 		}
 		goto _qrsort_restart;
-	} else if (pe < epe) {		// Only do right partition if there's 2 or more elements
+	} else if (pe < spe) {		// Only do right partition if there's 2 or more elements
 		ps = pe;
-		pe = epe;
+		pe = spe;
 		goto _qrsort_restart;
 	}
 } // _qrsort
@@ -229,8 +221,8 @@ getmsb(uint32_t v)
 void
 qrsort(char *a, size_t n, size_t es, const uint32_t (*getkey)())
 {
-	uint32_t msb = 0;
 	register char *e = a + (es * (n - 1));
+	uint32_t msb;
 
 	// Sanity check our parameters
 	if ((a == NULL) || (n < 2) || (es < 1) || (getkey == NULL)) {
@@ -238,18 +230,43 @@ qrsort(char *a, size_t n, size_t es, const uint32_t (*getkey)())
 	}
 
 	// Obtain a hint about the msb set of all keys in the data set
-	for (register char *b = a; b <= e; b += es) {
-		if (getmsb(getkey(b)) > msb) {
-			if ((msb = getmsb(getkey(b))) == 31) {
-				break;
+	// Only do this if n is above the insertion sort threshold
+	if ((n - 1) > __INSERT_THRESH) {
+		msb = 0;
+		// For small values of n, save the result of the getmsb
+		// calculation to reduce the overall key lookups
+		// However, for large values of n, we will do, at most
+		// 31 extra key lookups, and so it's faster to not save
+		// the getmsb(getkey()) result
+		if (n < 200) {
+			register uint32_t gmsb;
+			for (register char *b = a; b <= e; b += es) {
+				if ((gmsb = getmsb(getkey(b))) > msb) {
+					if ((msb = gmsb) == 31) {
+						break;
+					}
+				}
+			}
+		} else {
+			for (register char *b = a; b <= e; b += es) {
+				if (getmsb(getkey(b)) > msb) {
+					if ((msb = getmsb(getkey(b))) == 31) {
+						break;
+					}
+				}
 			}
 		}
+	} else {
+		msb = 31;
 	}
 
 	_qrsort(a, e, es, getkey, msb);
 } // qrsort
 
-#undef __SELECT_THRESH
+#ifdef __INSERT_THRESH
+#undef __INSERT_THRESH
+#endif
+
+#ifdef __ITERATIVE
 #undef __ITERATIVE
-#undef __do_swap
-#undef swap
+#endif

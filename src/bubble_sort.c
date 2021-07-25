@@ -8,19 +8,16 @@
 // partition over time.
 
 #include <stddef.h>
-#include "oldswap.h"
+#include "newswap.h"
 
 void
 bubble_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
 	register char	*b, *c, *e = a + n * es, *s;
-	register int	swaptype;
-
-	SWAPINIT(a, es);
 
 	for (;;) {
 		for (s=a, b=a, c=a+es; c<e; b+=es, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c); a = c; }
+			if (cmp(b, c) > 0) { swap(b, c, es); a = c; }
 		if (s == a) return;
 		e = a; a = s;
 	}

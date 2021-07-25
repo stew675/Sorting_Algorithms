@@ -111,6 +111,7 @@ void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
 {
 	register char	*b, *c, *e = a + n * es, *s;
+	register int	swaptype;
 	size_t		step = n;
 	int		pos = 0;
 

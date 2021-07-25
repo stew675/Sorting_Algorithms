@@ -14,6 +14,9 @@ SRC=	heap_sort.c \
 	qrsort.c \
 	rattle_sort.c \
 	merge_sort.c \
+	insertion_merge.c \
+	insertion_sort.c \
+	selection_sort.c \
 	heap_merge.c \
 	smooth_sort.c \
 	grail_sort.c \

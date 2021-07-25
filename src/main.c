@@ -22,16 +22,19 @@ uint64_t numswaps = 0, numcopies = 0;
 extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
-extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void GrailSort(uint32_t *arr,int Len);
+extern void insertion_merge(void *a, size_t n, size_t es, int (*cmp)());
+extern void insertion_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
+extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
+extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void selection_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
-extern void GrailSort(uint32_t *arr,int Len);
 extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
 
@@ -102,12 +105,15 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-gs\tGrail Sort\n");
 	fprintf(stderr, "\t-hm\tHeap Merge Sort\n");
 	fprintf(stderr, "\t-hs\tHeap Sort\n");
+	fprintf(stderr, "\t-im\tInsertion Merge Sort\n");
+	fprintf(stderr, "\t-is\tInsertion Sort\n");
 	fprintf(stderr, "\t-me\tMerge Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
 	fprintf(stderr, "\t-sh\tShell Sort\n");
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
+	fprintf(stderr, "\t-ss\tSelection Sort\n");
 	fprintf(stderr, "\t-wh\tWeak Heap Sort\n");
 	fprintf(stderr, "\nError: %s\n", msg);
 	exit(-1);
@@ -157,6 +163,16 @@ void
 		return heap_sort;
 	}
 
+	if (strcmp(opt, "-im") == 0) {
+		*sortname = "Insertion Merge Sort";
+		return insertion_merge;
+	}
+
+	if (strcmp(opt, "-is") == 0) {
+		*sortname = "Insertion Sort";
+		return insertion_sort;
+	}
+
 	if(strcmp(opt, "-me") == 0) {
 		*sortname = "Merge Sort";
 		return merge_sort;
@@ -185,6 +201,11 @@ void
 	if(strcmp(opt, "-sm") == 0) {
 		*sortname = "Smooth Sort";
 		return smooth_sort;
+	}
+
+	if(strcmp(opt, "-ss") == 0) {
+		*sortname = "Selection Sort";
+		return selection_sort;
 	}
 
 	if (strcmp(opt, "-wh") == 0) {
