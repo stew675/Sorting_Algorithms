@@ -11,7 +11,7 @@ static size_t gaps[] = {46498303, 17436869, 6538817, 2452057, 919519, 344821, 12
 
 // Sort an array a[0...n-1].
 void
-shell_sort(char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
+shell_sort(char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char *b, *c, *d, *e = a + n * es, *s;	// e points at the end of the array
 	register size_t gap;
@@ -24,10 +24,10 @@ shell_sort(char *a, size_t n, register const size_t es, register const int (*cmp
 	for (pos = 0; n < gaps[pos]; pos++);
 	for (gap = gaps[pos]; gap > 0; gap = gaps[++pos]) {
 		for (gap *= es, s = a + gap, b = s, d = s - gap; b < e; b += es, d = b - gap) {
-			if (cmp(d, b) > 0) {
+			if (is_less_than(b, d)) {
 				copy(temp, b);
 				copy(b, d);
-				for (c = d, d -= gap; (c >= s) && (cmp(d, temp) > 0); c = d, d -= gap) {
+				for (c = d, d -= gap; (c >= s) && is_less_than(temp, d); c = d, d -= gap) {
 					copy(c, d);
 				}
 				copy(c, temp);

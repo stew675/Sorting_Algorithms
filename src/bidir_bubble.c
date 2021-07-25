@@ -12,7 +12,7 @@
 #include "oldswap.h"
 
 void
-bidir_bubble_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
+bidir_bubble_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char	*b, *c, *e = a + n * es, *s;
 	register int	swaptype;
@@ -21,12 +21,12 @@ bidir_bubble_sort(register char *a, size_t n, register const size_t es, register
 
 	for (;;) {
 		for (b=a, c=a+es, s=a; c<e; b+=es, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c); a = c; }
+			if (is_less_than(c, b)) { swap(b, c); a = c; }
 		if (s == a) return;
 		e = a; a = s;
 
 		for (b=e-es, c=b-es, s=e; c>=a; b-=es, c-=es)
-			if (cmp(b, c) < 0) { swap(b, c); e = c; }
+			if (is_less_than(b, c)) { swap(b, c); e = c; }
 		if (s == e) return;
 		a = e; e = s;
 	}

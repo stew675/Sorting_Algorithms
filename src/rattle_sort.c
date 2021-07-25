@@ -108,7 +108,7 @@ static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 10
 			       2357, 3137, 4201, 5591, 7459, 9949, 13267, 17707, 23599, 31469, 41953, 55933, 74573, 99439, 4294967295};
 
 void
-rattle_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
+rattle_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char	*b, *c, *e = a + n * es, *s;
 	register int	swaptype;
@@ -118,12 +118,12 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	for (;;) {
 		for (step = next_step, b=a, c=a+(step*es), s = a; c<e; b+=es, c+=es)
-			if (cmp(b, c) > 0) { swap(b, c, es); a = c; }
+			if (is_less_than(c, b)) { swap(b, c, es); a = c; }
 		if (step == 1) { if (s == a) { return; } else { e = a; } }
 		a = s;
 
 		for (step = next_step, b=e-es, c=b-(step*es), s = e; c>=a; b-=es, c-=es)
-			if (cmp(b, c) < 0) { swap(b, c, es); e = c; }
+			if (is_less_than(b, c)) { swap(b, c, es); e = c; }
 		if (step == 1) { if (s == e) { return; } else { a = e; } }
 		e = s;
 	}

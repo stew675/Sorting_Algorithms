@@ -9,24 +9,29 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <alloca.h>
 #include "newswap.h"
 
-#define STEP 20
+#define STEP 24
 
 static bool
-is_sorted(char *a, register char *e, register size_t es, register size_t step, register const int (*cmp)(const void *, const void *))
+is_sorted(char *a, register char *e, register size_t es, register size_t step, register const int (*is_less_than)(const void *, const void *))
 {
-	for (register char *s=a+step; s < e; s+=step)
-		if (cmp(s, s-es) < 0)
+	for (register char *s=a+step; s<e; s+=step)
+		if (is_less_than(s, s-es))
 			return false;
 	return true;
 } // is_sorted
 
 void
-aim_sort(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
+aim_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char	*se = a + (n * es);	// se means Source End
-	register size_t	step = STEP*es;
+	register size_t	step;
+
+	// Choose a step size that divides the problem set as evenly as possible
+	for (step = n; step > STEP; step = (step + 1) / 2);
+	step *= es;
 
 	// First pass over a, doing insertion sorts every STEP intervals
 	do {
@@ -35,21 +40,20 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 				be = se;
 			}
 			for (register char *s, *p = b+es; p < be; p+=es)
-				for(s=p; (s>b) && (cmp(s, s-es)<0); s-=es)
+				for(s=p; (s>b) && is_less_than(s, s-es); s-=es)
 					swap(s, s-es, es);
 		}
 	} while (0);
 
 	// Check if we're done
-	if (is_sorted(a, se, es, step, cmp)) {
+	if (is_sorted(a, se, es, step, is_less_than)) {
 		return;
 	}
 
 	register char *wrk;
 
-	if ((wrk = (char *)aligned_alloc(4096, n * es)) == NULL) {
+	if ((wrk = (char *)malloc(n * es)) == NULL)
 		return;		// Out of memory
-	}
 
 	register char *src = a, *dp = wrk;
 	register char *de = dp + n * es;	// Destination End
@@ -68,7 +72,7 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 			// code looks ugly, but it appears to be the fastest way to run
 			// these loops, so it is what it is for that reason
 			for (;; dp+=es) {
-				if (cmp(b1p, b2p) > 0) {
+				if (is_less_than(b2p, b1p)) {
 					copy(dp, b2p, es);
 					if ((b2p += es) == b2e)
 						goto copy_b1_remainder;
@@ -117,7 +121,7 @@ copy_b2_remainder:
 		step += step;
 
 		// Check if we're done
-		if (is_sorted((src == a ? wrk : a), de, es, step, cmp))
+		if (is_sorted((src == a ? wrk : a), de, es, step, is_less_than))
 			break;
 
 		// Swap src with dst and restart the loop

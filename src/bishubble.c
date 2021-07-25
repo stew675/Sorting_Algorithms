@@ -7,7 +7,7 @@ static size_t steps[] = {46498303, 17436869, 6538817, 2452057, 919519, 344821, 1
 
 // Sort an array a[0...n-1].
 void
-bishubble_sort(register char *a, size_t n, const size_t es, register const int (*cmp)(const void *, const void *))
+bishubble_sort(register char *a, size_t n, const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char	*b, *c, *s;
 	register int	swaptype;
@@ -27,12 +27,12 @@ bishubble_sort(register char *a, size_t n, const size_t es, register const int (
 			step *= es;
 			for (register char *e = a + (n - i) * es;;) {
 				for (b=a, c=a+step, s=a; c<e; b+=step, c+=step)
-					if (cmp(b, c) > 0) { swap(b, c); a = c; }
+					if (is_less_than(c, b)) { swap(b, c); a = c; }
 				if (s == a) break;
 				e = a; a = s;
 
 				for (b=e-step, c=b-step, s=e; c>=a; b-=step, c-=step)
-					if (cmp(b, c) < 0) { swap(b, c); e = c; }
+					if (is_less_than(b, c)) { swap(b, c); e = c; }
 				if (s == e) break;
 				a = e; e = s;
 			}

@@ -25,7 +25,6 @@
 #include<stdint.h>
 #include<stdbool.h>
 
-extern uint64_t numswaps, numcmps;
 #define GRAIL_EXT_BUFFER_LENGTH 512
 
 #define SORT_TYPE uint32_t
@@ -37,12 +36,10 @@ compare_uint32(register const void *p1, register const void *p2)
         register const uint32_t *a = (const uint32_t *)p1;
         register const uint32_t *b = (const uint32_t *)p2;
 
-	numcmps++;
         return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
 }
 
 inline void grail_swap1(SORT_TYPE *a,SORT_TYPE *b){
-	numswaps++;
 	SORT_TYPE c=*a;
 	*a=*b;
 	*b=c;

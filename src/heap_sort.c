@@ -24,19 +24,19 @@
 #include "newswap.h"
 
 void
-heap_sort(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+heap_sort(register char *a, size_t n, register size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char *e=a+n*es, *max, *l, *r, *root;
 
-#define heapify(p)								\
-	for (l = p + (p - a) + es, max = p; l < e;) {				\
-		root = max;							\
-		r = l + es;							\
-		(cmp(l, max) > 0) && (max = l);					\
-		(r < e) && (cmp(r, max) > 0) && (max = r);			\
-		if (max == root) break;						\
-		l = max + (max - a) + es;					\
-		swap(root, max, es);						\
+#define heapify(p)							\
+	for (l = p + (p - a) + es, max = p; l < e;) {			\
+		root = max;						\
+		r = l + es;						\
+		is_less_than(max, l) && (max = l);			\
+		(r < e) && is_less_than(max, r) && (max = r);		\
+		if (max == root) break;					\
+		l = max + (max - a) + es;				\
+		swap(root, max, es);					\
 	}
 
 	// Build the heap

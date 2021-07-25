@@ -10,7 +10,7 @@
 #define flpbit(R,K)	  ( *(R+((K)>>5)) ^=  (1<<((K)&0x1f)) )
 
 void
-weak_heap(register char *a, register size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+weak_heap(register char *a, register size_t n, register size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register size_t k;
 	register uint32_t *r;
@@ -29,7 +29,7 @@ weak_heap(register char *a, register size_t n, register size_t es, register cons
 		for (i = k; (i & 1) == tstbit(r, i>>1); i>>=1);
 		i >>= 1;
 		// Swap as needed
-		if (cmp(a+i*es, a+k*es) < 0) {
+		if (is_less_than(a+i*es, a+k*es)) {
 			swap(a+i*es, a+k*es, es);
 			flpbit(r, k);
 		}
@@ -45,7 +45,7 @@ weak_heap(register char *a, register size_t n, register size_t es, register cons
 		// Sift down to restore weak heap ordering
 		for (k = !tstbit(r, 0); (k + k + tstbit(r, k)) < n; k += k + tstbit(r, k));
 		for (; k; k>>=1) {
-			if (cmp(a, a+k*es) < 0) {
+			if (is_less_than(a, a+k*es)) {
 				swap(a, a+k*es, es);
 				flpbit(r, k);
 			}

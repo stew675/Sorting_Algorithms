@@ -20,20 +20,20 @@
 #include <stdint.h>
 #include "newswap.h"
 
-#define heapify(p)								\
-	for (l = p + (p - a) + es, max = p; l < e;) {				\
-		root = max;							\
-		r = l + es;							\
-		(cmp(l, max) > 0) && (max = l);					\
-		(r < e) && (cmp(r, max) > 0) && (max = r);			\
-		if (max == root) break;						\
-		l = max + (max - a) + es;					\
-		swap(root, max, es);						\
+#define heapify(p)							\
+	for (l = p + (p - a) + es, max = p; l < e;) {			\
+		root = max;						\
+		r = l + es;						\
+		is_less_than(max, l) && (max = l);			\
+		(r < e) && is_less_than(max, r) && (max = r);		\
+		if (max == root) break;					\
+		l = max + (max - a) + es;				\
+		swap(root, max, es);					\
 	}
 
 // High speed heap sort
 static void
-_hs(register char *a, size_t n, register size_t es, register const int (*cmp)(const void *, const void *))
+_hs(register char *a, size_t n, register size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char *e=a+n*es, *max, *l, *r, *root;
 
@@ -50,14 +50,14 @@ _hs(register char *a, size_t n, register size_t es, register const int (*cmp)(co
 	}
 } // _hs
 
-extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void rattle_sort(void *a, size_t n, size_t es, int (*is_less_than)());
 
 // For partition sizes equal to or smaller than this, we
 // invoke heap_sort to sort the rest of any partition
 #define SORT_THRESH	3500
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void *, const void *), register char *c)
+_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register char *c)
 {
 	if (n < 2)
 		return;
@@ -68,14 +68,14 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 
 	// Merge sort each sub-array
 	if (an > SORT_THRESH)
-		_ms(a, an, es, cmp, c);
+		_ms(a, an, es, is_less_than, c);
 	else
-		_hs(a, an, es, cmp);
+		_hs(a, an, es, is_less_than);
 
 	if (n - an > SORT_THRESH)
-		_ms(b, n - an, es, cmp, c);
+		_ms(b, n - an, es, is_less_than, c);
 	else
-		_hs(b, n - an, es, cmp);
+		_hs(b, n - an, es, is_less_than);
 
 	// Now merge the 2 sorted sub-arrays back into the original array
 
@@ -85,10 +85,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
-		if (cmp(b, c) < 0) {
-			copy(a, b, es); b+=es;
-		} else {
+		if (is_less_than(c, b)) {
 			copy(a, c, es); c+=es;
+		} else {
+			copy(a, b, es); b+=es;
 		}
 	}
 
@@ -99,10 +99,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 
 
 void
-heap_merge(char *a, size_t n, size_t es, const int (*cmp)(const void *, const void *))
+heap_merge(char *a, size_t n, size_t es, const int (*is_less_than)(const void *, const void *))
 {
 	if (n <= SORT_THRESH)
-		return _hs(a, n, es, cmp);
+		return _hs(a, n, es, is_less_than);
 
 	char *c = NULL;
 
@@ -111,7 +111,7 @@ heap_merge(char *a, size_t n, size_t es, const int (*cmp)(const void *, const vo
 		return;
 	}
 
-	_ms(a, n, es, cmp, c);
+	_ms(a, n, es, is_less_than, c);
 
 	free(c);
 } // heap_merge

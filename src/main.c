@@ -15,8 +15,8 @@ static uint32_t data_set_limit = UINT32_MAX;
 static unsigned int random_seed = 1;
 static bool verbose = false;
 
-static uint64_t numcmps = 0, numkeys = 0;
-uint64_t numswaps = 0, numcopies = 0;
+static uint64_t numkeys = 0;
+uint64_t numcmps = 0, numswaps = 0, numcopies = 0;
 
 // Declarations of all the sort functions we support
 extern void aim_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -47,6 +47,18 @@ get_uint32_key(register const void *a)
 	return *((uint32_t *)a);
 } // get_uint32_key
 
+
+// Used to determine if the first uint32_t pointed at, is less than
+// the second uint32_t that is pointed at
+static int
+is_less_than_uint32(register const void *p1, register const void *p2)
+{
+	register const uint32_t *a = (const uint32_t *)p1;
+	register const uint32_t *b = (const uint32_t *)p2;
+
+	numcmps++;
+	return (*a < *b);
+} // is_less_than_uint32
 
 // Used to compare two uint32_t values pointed at by the pointers given
 static int
@@ -531,8 +543,10 @@ main(int argc, char *argv[])
 	if (sort != qrsort) {
 		if (sort == GrailSort) {
 			sort(a, n);
-		} else {
+		} else if ((sort == qsort) || (sort == nqsort) || (sort == smooth_sort)) {
 			sort(a, n, sizeof(*a), compare_uint32);
+		} else {
+			sort(a, n, sizeof(*a), is_less_than_uint32);
 		}
 	} else {
 		sort(a, n, sizeof(*a), get_uint32_key);
@@ -550,10 +564,6 @@ main(int argc, char *argv[])
 	printf("Number of Compares: %lu\n", numcmps);
 	printf("Number of Swaps   : %lu\n", numswaps);
 	printf("Number of Copies  : %lu\n", numcopies);
-	printf(" ");
-	printf(" ");
-	printf(" ");
-	printf(" ");
 	printf(" ");
 	printf("\n");
 

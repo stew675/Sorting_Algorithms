@@ -22,12 +22,12 @@
 
 __attribute__((noinline))
 static void
-_is(register char *a, size_t n, register const size_t es, register const int (*cmp)(const void *, const void *))
+_is(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
 	register char	*p, *s, *e = a + n * es;
 
 	for (p = a+es; p < e; p+=es)
-		for(s=p; (s>a) && (cmp(s, s-es)<0); s-=es)
+		for(s=p; (s>a) && is_less_than(s, s-es); s-=es)
 			swap(s, s-es, es);
 } // insertion_sort
 
@@ -36,7 +36,7 @@ _is(register char *a, size_t n, register const size_t es, register const int (*c
 #define SORT_THRESH	20
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void *, const void *), register char *c)
+_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register char *c)
 {
 	if (n < 2)
 		return;
@@ -47,14 +47,14 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 
 	// Merge sort each sub-array
 	if (an > SORT_THRESH)
-		_ms(a, an, es, cmp, c);
+		_ms(a, an, es, is_less_than, c);
 	else
-		_is(a, an, es, cmp);
+		_is(a, an, es, is_less_than);
 
 	if (n - an > SORT_THRESH)
-		_ms(b, n - an, es, cmp, c);
+		_ms(b, n - an, es, is_less_than, c);
 	else
-		_is(b, n - an, es, cmp);
+		_is(b, n - an, es, is_less_than);
 
 	// Now merge the 2 sorted sub-arrays back into the original array
 
@@ -64,10 +64,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
-		if (cmp(b, c) < 0) {
-			copy(a, b, es); b+=es;
-		} else {
+		if (is_less_than(c, b)) {
 			copy(a, c, es); c+=es;
+		} else {
+			copy(a, b, es); b+=es;
 		}
 	}
 
@@ -78,10 +78,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 
 
 void
-insertion_merge(char *a, size_t n, size_t es, const int (*cmp)(const void *, const void *))
+insertion_merge(char *a, size_t n, size_t es, const int (*is_less_than)(const void *, const void *))
 {
 	if (n <= SORT_THRESH) {
-		return _is(a, n, es, cmp);
+		return _is(a, n, es, is_less_than);
 	}
 
 	char *c = NULL;
@@ -91,7 +91,7 @@ insertion_merge(char *a, size_t n, size_t es, const int (*cmp)(const void *, con
 		return;
 	}
 
-	_ms(a, n, es, cmp, c);
+	_ms(a, n, es, is_less_than, c);
 
 	free(c);
 } // heap_merge

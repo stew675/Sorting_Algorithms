@@ -21,7 +21,7 @@
 #include "newswap.h"
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void *, const void *), register char *c)
+_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register char *c)
 {
 	if (n < 2)
 		return;
@@ -30,8 +30,8 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 	size_t an = (n + 1) / 2;
 	register char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
 
-	_ms(a, an, es, cmp, c);
-	_ms(b, n - an, es, cmp, c);
+	_ms(a, an, es, is_less_than, c);
+	_ms(b, n - an, es, is_less_than, c);
 
 	// Now merge the 2 sorted sub-arrays back into the original array
 
@@ -41,10 +41,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
-		if (cmp(b, c) < 0) {
-			copy(a, b, es); b+=es;
-		} else {
+		if (is_less_than(c, b)) {
 			copy(a, c, es); c+=es;
+		} else {
+			copy(a, b, es); b+=es;
 		}
 	}
 
@@ -55,7 +55,7 @@ _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void 
 
 
 void
-merge_sort(char *a, size_t n, size_t es, const int (*cmp)(const void *, const void *))
+merge_sort(char *a, size_t n, size_t es, const int (*is_less_than)(const void *, const void *))
 {
 	char *c = NULL;
 
@@ -64,7 +64,7 @@ merge_sort(char *a, size_t n, size_t es, const int (*cmp)(const void *, const vo
 		return;
 	}
 
-	_ms(a, n, es, cmp, c);
+	_ms(a, n, es, is_less_than, c);
 
 	free(c);
 } // merge_sort
