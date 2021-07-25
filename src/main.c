@@ -78,15 +78,17 @@ test_sort(register uint32_t a[], register size_t n)
 
 
 static void
-usage(char *prog)
+usage(char *prog, char *msg)
 {
+	fprintf(stderr, "Error: %s\n", msg);
 	fprintf(stderr, "\nUsage: %s [options] <sort_type> numels\n", prog);
 	fprintf(stderr, "\n[options] is zero or more of the following options\n");
 	fprintf(stderr, "\t-a seed     A random number generator seed value to use (default=1)\n");
 	fprintf(stderr, "\t            A value of 0 will use a randomly generated seed\n");
 	fprintf(stderr, "\t-d <0..100> Disorder the generated set by the percentage given (default=100)\n");
 	fprintf(stderr, "\t-f          Data set keys/values range from 0..UINT32_MAX (default)\n");
-	fprintf(stderr, "\t-l num      Data set keys/values limited in range from 0..num\n");
+	fprintf(stderr, "\t-l <1..MAX> Data set keys/values limited in range from 0..num\n");
+	fprintf(stderr, "\t-l n        If the letter 'n' is specified, use the number of elements as the key range\n");
 	fprintf(stderr, "\t-o          Use a fully ordered data set (sets disorder factor to 0)\n");
 	fprintf(stderr, "\t-r          Reverse the data set order after generating it\n");
 	fprintf(stderr, "\t-u          Data set keys/values must all be unique\n");
@@ -107,6 +109,7 @@ usage(char *prog)
 	fprintf(stderr, "\t-sh\tShell Sort\n");
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
 	fprintf(stderr, "\t-wh\tWeak Heap Sort\n");
+	fprintf(stderr, "\nError: %s\n", msg);
 	exit(-1);
 } // usage
 
@@ -219,6 +222,10 @@ parse_control_opt(char *argv[])
 	}
 	if (!strcmp(argv[0], "-l")) {
 		size_t limit;
+		if (!strcmp(argv[1], "n")) {
+			data_set_limit = 0;
+			return 2;
+		}
 		limit = atol(argv[1]);
 		if (limit > UINT32_MAX)
 			limit = UINT32_MAX;
@@ -384,8 +391,7 @@ main(int argc, char *argv[])
 	int		optpos = 1;
 
 	if(argc < 3) {
-		fprintf(stderr, "Incorrect number of arguments\n");
-		usage(argv[0]);
+		usage(argv[0], "Incorrect number of arguments");
 	}
 
 	while (strlen(argv[optpos]) == 2) {
@@ -394,8 +400,7 @@ main(int argc, char *argv[])
 
 	// Determine the sort type
 	if ((sort = parse_sort_type(argv[optpos++], &sortname)) == NULL) {
-		fprintf(stderr, "Unsupported sort type\n");
-		usage(argv[0]);
+		usage(argv[0], "Unsupported sort type");
 	}
 
 	// Determine the size of the array we'll be sorting
@@ -406,6 +411,11 @@ main(int argc, char *argv[])
 	if (n >= INT32_MAX) {
 		fprintf(stderr, "Please use values less than %d for the number of elements\n", INT32_MAX);
 		exit(-1);
+	}
+
+	// If data_set_limit is 0 at this point, it means we should set it to n
+	if (data_set_limit == 0) {
+		data_set_limit = n;
 	}
 
 	// Set up the random number generator
