@@ -59,10 +59,10 @@ compare_uint32(register const void *p1, register const void *p2)
 static void
 print_array(register uint32_t a[], register size_t n)
 {
-	printf("%u", a[0]);
+	printf("\n%u", a[0]);
 	for(register size_t i = 1; i < n; i++)
 		printf(", %u", a[i]);
-	printf("\n");
+	printf("\n\n");
 } // print_array
 
 
@@ -237,7 +237,7 @@ parse_control_opt(char *argv[])
 		return 2;	// We grabbed 2 options
 	}
 	if (!strcmp(argv[0], "-o")) {
-		disorder_factor = 3;
+		disorder_factor = 0;
 		return 1;
 	}
 	if (!strcmp(argv[0], "-r")) {
