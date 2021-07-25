@@ -333,7 +333,7 @@ get_next_val(uint32_t val, size_t pos, size_t n)
 			fprintf(stderr, "set of values that can be generated. Aborting\n");
 			exit(1);
 		}
-	} else if (step > 1) {
+	} else if (vals_left > 1) {
 		step += 1;
 	}
 
