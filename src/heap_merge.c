@@ -54,7 +54,7 @@ extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 
 // For partition sizes equal to or smaller than this, we
 // invoke heap_sort to sort the rest of any partition
-#define SORT_THRESH	20000
+#define SORT_THRESH	3500
 
 static void
 _ms(register char *a, size_t n, size_t es, register const int (*cmp)(const void *, const void *), register char *c)
