@@ -41,10 +41,10 @@ _ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(co
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
-		if (is_less_than(c, b)) {
-			copy(a, c, es); c+=es;
-		} else {
+		if (is_less_than(b, c)) {
 			copy(a, b, es); b+=es;
+		} else {
+			copy(a, c, es); c+=es;
 		}
 	}
 
