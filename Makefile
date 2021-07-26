@@ -10,6 +10,7 @@ SRC=	heap_sort.c \
 	bubble_sort.c \
 	comb_sort.c \
 	main.c \
+	ahm_sort.c \
 	aim_sort.c \
 	nqsort.c \
 	qrsort.c \

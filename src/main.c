@@ -19,6 +19,7 @@ static uint64_t numkeys = 0;
 uint64_t numcmps = 0, numswaps = 0, numcopies = 0;
 
 // Declarations of all the sort functions we support
+extern void ahm_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void aim_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -110,6 +111,8 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-u          Data set keys/values must all be unique\n");
 	fprintf(stderr, "\t-v          Verbose.  Display the data set before sorting it\n");
 	fprintf(stderr, "\n<sort_type> is one only of the following options\n");
+	fprintf(stderr, "\t-ah\tAdaptive Heap-Merge Sort\n");
+	fprintf(stderr, "\t-am\tAdaptive Insertion-Merge Sort\n");
 	fprintf(stderr, "\t-bb\tBidirectional Bubble Sort\n");
 	fprintf(stderr, "\t-bs\tBidirectional Bubble Shell Sort\n");
 	fprintf(stderr, "\t-bu\tBubble Sort\n");
@@ -136,8 +139,13 @@ usage(char *prog, char *msg)
 void
 (*parse_sort_type(char *opt, char **sortname))()
 {
+	if (strcmp(opt, "-ah") == 0) {
+		*sortname = "Adaptive Heap-Merge Sort";
+		return ahm_sort;
+	}
+
 	if (strcmp(opt, "-am") == 0) {
-		*sortname = "Adaptive Merge Sort";
+		*sortname = "Adaptive Insertion-Merge Sort";
 		return aim_sort;
 	}
 
@@ -564,6 +572,7 @@ main(int argc, char *argv[])
 	printf("Number of Compares: %lu\n", numcmps);
 	printf("Number of Swaps   : %lu\n", numswaps);
 	printf("Number of Copies  : %lu\n", numcopies);
+	printf(" ");
 	printf(" ");
 	printf("\n");
 
