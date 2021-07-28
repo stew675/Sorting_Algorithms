@@ -18,12 +18,16 @@ SRC=	heap_sort.c \
 	merge_sort.c \
 	insertion_merge.c \
 	insertion_sort.c \
+	insertion_sort2.c \
+	intro_sort.c \
 	selection_sort.c \
 	heap_merge.c \
 	smooth_sort.c \
 	grail_sort.c \
 	weak_heap.c \
 	shell_sort.c
+
+#	merge_inplace.c \
 
 INCDIR= include
 SRCDIR= src
