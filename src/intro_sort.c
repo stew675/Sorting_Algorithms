@@ -54,7 +54,9 @@ _hs(register char *a, size_t n, register size_t es, register const int (*is_less
 
 	// The first element will always be the current maximum
 	// Swap it to the end and bring the end in by one element
-	// until we end up completely draining the heap
+	// until we end up completely draining the heap.  Here
+	// we're relying on the C pre-processor to optimise away
+	// the inherent (a - a) as a result of the macro expansion
 	for (e-=es; e>a; e-=es) {
 		swap(a, e);
 		heapify(a);
@@ -91,12 +93,15 @@ partition(register char *a, size_t n, register const size_t es, register const i
 
 	// Now partition the array around the pivot point's value
 	// Remember: e contains the pivot value
+	// The loop is organised in the way it is 'cos it keeps
+	// the CPU uop cache tighter before the swap operation
 	for (p = e; a < p; )
-		if (is_less_than(e, a)) {
+		if (!is_less_than(e, a)) {
+			a+=es;
+		} else {
 			p-=es;
 			swap(a, p);
-		} else
-			a+=es;
+		}
 
 	// Move the pivot point into position
 	if (p != e)
@@ -117,12 +122,12 @@ _intro_sort(register char *a, size_t n, register const size_t es, register const
 	for (depth++;;) {
 		// Insertion Sort
 		if (n < 19) {
-			register char	*s, *e = a + n * es;
+			register char	*s, *e = a + n * es, *v;
 			register WORD	t;
 
 			for (p = a+es; p < e; p+=es)
-				for(s=p; (s>a) && is_less_than(s, s-es); s-=es)
-					swap(s, s-es);
+				for(s=p, v=p-es; s>a && is_less_than(s, v); s=v, v-=es)
+					swap(s, v);
 			depth--;
 			return;
 		}
