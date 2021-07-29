@@ -37,6 +37,7 @@ extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void selection_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void ternary_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
 
@@ -130,6 +131,7 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-sh\tShell Sort\n");
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
 	fprintf(stderr, "\t-ss\tSelection Sort\n");
+	fprintf(stderr, "\t-th\tTernary Heap Sort\n");
 	fprintf(stderr, "\t-wh\tWeak Heap Sort\n");
 	fprintf(stderr, "\nError: %s\n", msg);
 	exit(-1);
@@ -232,6 +234,11 @@ void
 	if(strcmp(opt, "-ss") == 0) {
 		*sortname = "Selection Sort";
 		return selection_sort;
+	}
+
+	if (strcmp(opt, "-th") == 0) {
+		*sortname = "Ternary Heap Sort";
+		return ternary_heap;
 	}
 
 	if (strcmp(opt, "-wh") == 0) {
