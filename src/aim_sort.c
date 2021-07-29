@@ -35,13 +35,27 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 
 	// First pass over a, doing insertion sorts every STEP intervals
 	do {
+		char temp[es];
+
 		for (register char *b = a, *be = a + step; b < se; b = be, be+=step) {
 			if (be > se) {
 				be = se;
 			}
-			for (register char *s, *p = b+es; p < be; p+=es)
-				for(s=p; (s>b) && is_less_than(s, s-es); s-=es)
-					swap(s, s-es, es);
+			for (register char *s, *p=b+es; p < be; p+=es) {
+				if (!is_less_than(p, p-es))
+					continue;
+
+				s = p - es;
+				copy(temp, p, es);
+				copy(p, s, es);
+				while ((s > b) && is_less_than(temp, s-es)) {
+					copy(s, s-es, es);
+					s -= es;
+				}
+				copy(s, temp, es);
+//				for(s=p-es; (s>b) && is_less_than(s, s-es); s-=es)
+//					swap(s, s-es, es);
+			}
 		}
 	} while (0);
 

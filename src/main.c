@@ -28,9 +28,12 @@ extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void GrailSort(uint32_t *arr,int Len);
 extern void insertion_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void insertion_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void insertion_sort2(void *a, size_t n, size_t es, int (*cmp)());
+extern void intro_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
+//extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -74,7 +77,7 @@ compare_uint32(register const void *p1, register const void *p2)
 } // compare_uint32
 
 
-static void
+void
 print_array(register uint32_t a[], register size_t n)
 {
 	printf("\nDATA_SET = [%u", a[0]);
@@ -90,6 +93,7 @@ test_sort(register uint32_t a[], register size_t n)
 	for(register size_t i = 1; i < n; i++)
 		if(a[i-1] > a[i]) {
 			fprintf(stderr, "Didn't sort data correctly\n");
+			print_array(a, n);
 			exit(-1);
 		}
 } // test_sort
@@ -123,8 +127,10 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-hm\tHeap Merge Sort\n");
 	fprintf(stderr, "\t-hs\tHeap Sort\n");
 	fprintf(stderr, "\t-im\tInsertion Merge Sort\n");
+	fprintf(stderr, "\t-in\tIntro Sort\n");
 	fprintf(stderr, "\t-is\tInsertion Sort\n");
 	fprintf(stderr, "\t-me\tMerge Sort\n");
+	fprintf(stderr, "\t-mi\tMerge Inplace Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
@@ -201,10 +207,27 @@ void
 		return insertion_sort;
 	}
 
+	if (strcmp(opt, "-i2") == 0) {
+		*sortname = "Insertion Sort 2";
+		return insertion_sort2;
+	}
+
+	if (strcmp(opt, "-in") == 0) {
+		*sortname = "Intro Sort";
+		return intro_sort;
+	}
+
 	if(strcmp(opt, "-me") == 0) {
 		*sortname = "Merge Sort";
 		return merge_sort;
 	}
+
+/*
+	if(strcmp(opt, "-mi") == 0) {
+		*sortname = "Merge In-Place Sort";
+		return mip_sort;
+	}
+*/
 
 	if(strcmp(opt, "-nq") == 0) {
 		*sortname = "New QuickSort";
