@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include "newswap.h"
 
 __attribute__((noinline))
@@ -59,8 +60,7 @@ _ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(co
 	// Now merge the 2 sorted sub-arrays back into the original array
 
 	// Copy a to c
-	for (register char *d = c, *s = a; d < ce; d+=es, s+=es)
-		copy(d, s, es);
+	memmove(c, a, ce-c);
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
