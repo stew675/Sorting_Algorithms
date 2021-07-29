@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "swap.h"
 
+static __thread int depth_limit, depth;
 
 // The get index of the most significant bit of a 64 bit value
 static uint8_t
@@ -127,10 +128,11 @@ partition(register char *a, size_t n, register const size_t es, register const i
 extern void print_array(void *, size_t);
 
 static void
-intro_sort_util(char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype, int dl)
+intro_sort_util(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype)
 {
-	for (;;) {
-		register char *p;
+	register char *p;
+
+	for (depth++;;) {
 
 		// Insertion Sort
 		if (n < 19) {
@@ -140,16 +142,20 @@ intro_sort_util(char *a, size_t n, register const size_t es, register const int 
 			for (p = a+es; p < e; p+=es)
 				for(s=p; (s>a) && is_less_than(s, s-es); s-=es)
 					swap(s, s-es);
+			depth--;
 			return;
 		}
 
 		// Heap Sort
-		if (n < 7500 || dl == 0)
-			return _hs(a, n, es, is_less_than, swaptype);
+		if (n < 7000 || depth >= depth_limit ) {
+			_hs(a, n, es, is_less_than, swaptype);
+			depth--;
+			return;
+		}
 
 		// Quick Sort
 		p = partition(a, n, es, is_less_than, swaptype);
-		intro_sort_util(a, (p-a)/es, es, is_less_than, swaptype, dl - 1);
+		intro_sort_util(a, (p-a)/es, es, is_less_than, swaptype);
 
 		// Rather than recurse here, just restart the loop.  This is the same
 		// same as doing the following, just without the actual function call
@@ -157,7 +163,6 @@ intro_sort_util(char *a, size_t n, register const size_t es, register const int 
 		p += es;
 		n -= (p-a)/es;
 		a = p;
-		dl--;
 	}
 } // intro_sort_util
 
@@ -166,15 +171,16 @@ intro_sort_util(char *a, size_t n, register const size_t es, register const int 
 void
 intro_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
 {
-	int depth_limit, swaptype;
+	int swaptype;
 
 	if (n < 2)
 		return;
 
 	SWAPINIT(a, es);
 
+	depth = 0;
 	depth_limit = (int)msb64((uint64_t)n);
  
 	// Perform a recursive intro_sort
-	intro_sort_util(a, n, es, is_less_than, swaptype, depth_limit);
+	intro_sort_util(a, n, es, is_less_than, swaptype);
 } // intro_sort
