@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <alloca.h>
+#include <string.h>
 #include "newswap.h"
 
 #define STEP 24
@@ -69,8 +70,8 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 	if ((wrk = (char *)malloc(n * es)) == NULL)
 		return;		// Out of memory
 
-	register char *src = a, *dp = wrk;
-	register char *de = dp + n * es;	// Destination End
+	register char *src = a, *dst = wrk;
+	register char *de = dst + n * es;	// Destination End
 
 	for (;;) {
 		register char *b1p, *b1e;	// bucket 1 position, bucket 1 end
@@ -85,13 +86,13 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 			// Merge both buckets into the destination.  I think that this
 			// code looks ugly, but it appears to be the fastest way to run
 			// these loops, so it is what it is for that reason
-			for (;; dp+=es) {
+			for (;; dst+=es) {
 				if (is_less_than(b2p, b1p)) {
-					copy(dp, b2p, es);
+					copy(dst, b2p, es);
 					if ((b2p += es) == b2e)
 						goto copy_b1_remainder;
 				} else {
-					copy(dp, b1p, es);
+					copy(dst, b1p, es);
 					if ((b1p += es) == b1e)
 						goto copy_b2_remainder;
 				}
@@ -99,23 +100,23 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 
 copy_b1_remainder:
 			// Copy any remainder in b1 over to the destination
-			// Increment dp 'cos we didn't do it before goto's above
-			dp += es;
+			// Increment dst 'cos we didn't do it before goto's above
+			dst += es;
 			do {
-				copy(dp, b1p, es);
+				copy(dst, b1p, es);
 				b1p += es;
-				dp += es;
+				dst += es;
 			} while (b1p < b1e);
 			continue;
 
 copy_b2_remainder:
 			// Copy any remainder in b2 over to the destination
-			// Increment dp 'cos we didn't do it before goto's above
-			dp += es;
+			// Increment dst 'cos we didn't do it before goto's above
+			dst += es;
 			do {
-				copy(dp, b2p, es);
+				copy(dst, b2p, es);
 				b2p += es;
-				dp += es;
+				dst += es;
 			} while (b2p < b2e);
 			continue;
 		}
@@ -126,8 +127,8 @@ copy_b2_remainder:
 			b1e = se;
 
 		while (b1p < b1e) {
-			copy(dp, b1p, es);
-			dp += es;
+			copy(dst, b1p, es);
+			dst += es;
 			b1p += es;
 		}
 
@@ -141,21 +142,18 @@ copy_b2_remainder:
 		// Swap src with dst and restart the loop
 		if (src == a) {
 			src = wrk;
-			dp = a;
+			dst = a;
 		} else {
 			src = a;
-			dp = wrk;
+			dst = wrk;
 		}
 		se = src + n * es;
-		de = dp + n * es;
+		de = dst + n * es;
 	}
 
 	if (src == a) {
-		de = a + n * es;
 		// Copy wrk back to a
-		for (src = wrk, dp = a; dp < de; src+=es, dp+=es) {
-			copy(dp, src, es);
-		}
+		memmove(a, wrk, se-src);
 	}
 
 	// Release our work space

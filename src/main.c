@@ -604,6 +604,8 @@ main(int argc, char *argv[])
 	printf("Number of Copies  : %lu\n", numcopies);
 	printf(" ");
 	printf(" ");
+	printf(" ");
+	printf(" ");
 	printf("\n");
 
 	free(a);

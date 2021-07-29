@@ -18,39 +18,46 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "newswap.h"
+#include <string.h>
+#include <stdio.h>
+#include "swap.h"
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register char *c)
+_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype, register char *c)
 {
 	if (n < 2)
 		return;
+
+	register WORD t;
 
 	// Split array into 2
 	size_t an = (n + 1) / 2;
 	register char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
 
-	_ms(a, an, es, is_less_than, c);
-	_ms(b, n - an, es, is_less_than, c);
+	_ms(a, an, es, is_less_than, swaptype, c);
+	_ms(b, n - an, es, is_less_than, swaptype, c);
 
 	// Now merge the 2 sorted sub-arrays back into the original array
 
 	// Copy a to c
-	for (register char *d = c, *s = a; d < ce; d+=es, s+=es)
-		copy(d, s, es);
+	memmove(c, a, ce-c);
 	
 	// Now merge b and c into a
 	for (; b < be && c < ce; a+=es) {
 		if (is_less_than(b, c)) {
-			copy(a, b, es); b+=es;
+			copy(a, b); b+=es;
 		} else {
-			copy(a, c, es); c+=es;
+			copy(a, c); c+=es;
 		}
 	}
 
-	// Copy any leftovers in c into a
-	for (; c<ce; a+=es, c+=es)
-		copy(a, c, es);
+	// Copy any leftovers from c into a
+	if (ce-c > 127) {
+		memmove(a, c, ce-c);
+	} else {
+		for (; c<ce; a+=es, c+=es)
+			copy(a, c);
+	}
 } // _ms
 
 
@@ -64,7 +71,11 @@ merge_sort(char *a, size_t n, size_t es, const int (*is_less_than)(const void *,
 		return;
 	}
 
-	_ms(a, n, es, is_less_than, c);
+	register int swaptype;
+
+	SWAPINIT(a, es);
+
+	_ms(a, n, es, is_less_than, swaptype, c);
 
 	free(c);
 } // merge_sort

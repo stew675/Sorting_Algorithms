@@ -7,7 +7,7 @@
 static __thread int depth_limit, depth;
 
 // The get index of the most significant bit of a 64 bit value
-static uint8_t
+static int
 msb64(uint64_t v)
 {
 	static const uint64_t dbm64 = (uint64_t)0x03f79d71b4cb0a89;
@@ -18,6 +18,8 @@ msb64(uint64_t v)
 		25, 39, 14, 33, 19, 30,  9, 24, 13, 18,  8, 12,  7,  6,  5, 63
 	};
 
+	if (!v)
+		return -1;
 	v |= v >> 1;
 	v |= v >> 2;
 	v |= v >> 4;
@@ -32,15 +34,15 @@ msb64(uint64_t v)
 static void
 _hs(register char *a, size_t n, register size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype)
 {
-	register char *e=a+n*es, *max, *l, *r, *root;
-	register WORD t;
+	register char	*e=a+n*es, *max, *l, *r, *root;
+	register WORD	t;
 
 #define heapify(p)							\
 	for (l = p + (p - a) + es, max = p; l < e;) {			\
 		root = max;						\
 		r = l + es;						\
-		is_less_than(max, l) && (max = l);			\
-		(r < e) && is_less_than(max, r) && (max = r);		\
+		if (is_less_than(max, l)) max = l;			\
+		if ((r < e) && is_less_than(max, r)) max = r;		\
 		if (max == root) break;					\
 		l = max + (max - a) + es;				\
 		swap(root, max);					\
@@ -61,83 +63,62 @@ _hs(register char *a, size_t n, register size_t es, register const int (*is_less
 } // _hs
 
 
+#define med3(a, b, c)  (is_less_than(a, b) ?                                   \
+                       (is_less_than(b, c) ? b : is_less_than(a, c) ? c : a) : \
+                       (is_less_than(c, b) ? b : is_less_than(c, a) ? c : a)) 
+
 static char *
 partition(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype)
 {
-	register char *e=a+(n-1)*es, *s;  // e should point AT the last element in the array a
-	register WORD t;
+	register char	*e=a+(n-1)*es, *p=a+(n/2)*es;  // e should point AT the last element in the array a
+	register WORD	t;
 
-	// Select a pivot point using median of 3 and move it to e
-	// Here we choose the last element (e) plus 2 random ones
-	do {
-		register char *m = a +(random()%(n-1))*es;
+	// Select a pivot point using median of 3
+	p = med3(a, p, e);
 
-		do {
-			s = a +(random()%(n-1))*es;
-		} while (m == s);
+	// Do a pseudo median-of-9 for larger partitions
+	if (n > 63) {
+		register size_t ne = (n/8)*es;
+		register char  *pl = med3(a+ne*2,  a+ne,  a+ne*3);
+		register char  *pr = med3(a+ne*5, a+ne*6, a+ne*7);
 
-		if (is_less_than(e, m)) {
-			// e < m
-			if (is_less_than(s, e)) {
-				// s < e < m
-				break;
-			}
-			if (is_less_than(s, m)) {
-				// e < s < m
-				swap(s, e);
-				break;
-			}
-			// e < m < s
-			swap(m, e);
-			break;
-		}
-		// m < e
-		if (is_less_than(e, s)) {
-			// m < e < s
-			break;
-		}
-		if (is_less_than(s, m)) {
-			// s < m < e
-			swap(m, e);
-			break;
-		}
-		// m < s < e
-		swap(s, e);
-	} while (0);
+		p = med3(pl, p, pr);
+	}
 
+	// Move the pivot value to the last element in the array
+	if (p != e)
+		swap(p, e);
 
 	// Now partition the array around the pivot point's value
-	s = e;
-	while (a < s)
+	// Remember: e contains the pivot value
+	for (p = e; a < p; )
 		if (is_less_than(e, a)) {
-			s-=es;
-			swap(a, s);
-		} else {
+			p-=es;
+			swap(a, p);
+		} else
 			a+=es;
-		}
 
 	// Move the pivot point into position
-	if (s != e)
-		swap(s, e);
+	if (p != e)
+		swap(p, e);
 
 	// Return a pointer to the partition point
-	return s;
+	return p;
 } // partition
 
 
 extern void print_array(void *, size_t);
 
 static void
-intro_sort_util(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype)
+_intro_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype)
 {
-	register char *p;
+	register char	*p;
 
 	for (depth++;;) {
-
 		// Insertion Sort
 		if (n < 19) {
-			register char   *s, *e = a + n * es;
-			register WORD t;
+			register char	*s, *e = a + n * es;
+			register WORD	t;
 
 			for (p = a+es; p < e; p+=es)
 				for(s=p; (s>a) && is_less_than(s, s-es); s-=es)
@@ -147,7 +128,7 @@ intro_sort_util(register char *a, size_t n, register const size_t es, register c
 		}
 
 		// Heap Sort
-		if (n < 7000 || depth >= depth_limit ) {
+		if (depth == depth_limit) {
 			_hs(a, n, es, is_less_than, swaptype);
 			depth--;
 			return;
@@ -155,16 +136,16 @@ intro_sort_util(register char *a, size_t n, register const size_t es, register c
 
 		// Quick Sort
 		p = partition(a, n, es, is_less_than, swaptype);
-		intro_sort_util(a, (p-a)/es, es, is_less_than, swaptype);
+		_intro_sort(a, (p-a)/es, es, is_less_than, swaptype);
 
 		// Rather than recurse here, just restart the loop.  This is the same
 		// same as doing the following, just without the actual function call
-		//   intro_sort_util(p, n - ((p-a)/es), es, is_less_than, swaptype, dl - 1);
+		//   _intro_sort(p+es, n - (((p+es)-a)/es), es, is_less_than, swaptype);
 		p += es;
 		n -= (p-a)/es;
 		a = p;
 	}
-} // intro_sort_util
+} // _intro_sort
 
 
 // Implementation of intro_sort
@@ -179,8 +160,8 @@ intro_sort(register char *a, size_t n, register const size_t es, register const 
 	SWAPINIT(a, es);
 
 	depth = 0;
-	depth_limit = (int)msb64((uint64_t)n);
- 
+	depth_limit = msb64((uint64_t)n);
+
 	// Perform a recursive intro_sort
-	intro_sort_util(a, n, es, is_less_than, swaptype);
+	_intro_sort(a, n, es, is_less_than, swaptype);
 } // intro_sort

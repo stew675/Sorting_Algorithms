@@ -2,7 +2,7 @@
 #define SWAP_H
 
 #include <stdint.h>
-extern uint64_t numswaps;
+extern uint64_t numswaps, numcopies;
 
 // swap.h
 //
@@ -20,16 +20,31 @@ typedef int WORD;
 #define SWAPINIT(a, es)					\
 	swaptype = (a - (char*)0 | es) % W ? 2 : es > W ? 1 : 0
 
-#define exch(a, b, t)					\
-	(t = a, a = b, b = t)
-
-#define swap(a, b)					\
+#define copy(a, b)					\
 	if (swaptype) {					\
-		swapfunc(a, b, es, swaptype);		\
+		copyfunc(a, b, es, swaptype);		\
 	} else {					\
-		numswaps++;				\
-		(void)exch(*(WORD*)(a), *(WORD*)(b), t);\
+		numcopies++;				\
+		*(WORD*)(a) = *(WORD*)(b);		\
 	}
+
+#define exch(a, b, t)					\
+	(t = a, a = b, b = t, numswaps++)
+
+
+static void
+copyfunc(char *a, char *b, size_t n, int swaptype)
+{
+	numcopies++;
+	if (swaptype <= 1) {
+		for( ; n; a += W, b += W, n -= W) {
+			*(WORD*)a = *(WORD*)b;
+		}
+	} else {
+		for( ; n; n--, *a++ = *b++);
+	}
+} // copyfunc
+
 
 static void
 swapfunc(char *a, char *b, size_t n, int swaptype)
@@ -47,6 +62,14 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 		}
 	}
 } // swapfunc
+
+#define swap(a, b)					\
+	if (swaptype) {					\
+		swapfunc(a, b, es, swaptype);		\
+	} else {					\
+		numswaps++;				\
+		(void)exch(*(WORD*)(a), *(WORD*)(b), t);\
+	}
 
 #define vecswap(a, b, n)			\
 	if (n > 0) {				\
