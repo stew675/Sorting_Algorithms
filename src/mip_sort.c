@@ -19,7 +19,7 @@ typedef const int (*ilt)(const void *, const void *);
 static void
 merge_inplace(register char *a, size_t an, size_t bn, register size_t es, register ilt is_less_than, register int swaptype)
 {
-	register char	*b = a+an*es, *e = b+bn*es, *s, *v;
+	register char	*b = a+an*es, *e = b+bn*es, *s;
 	register WORD   t;
 
 	// Return right now if we're done
