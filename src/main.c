@@ -33,7 +33,7 @@ extern void intro_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
-//extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -222,12 +222,10 @@ void
 		return merge_sort;
 	}
 
-/*
 	if(strcmp(opt, "-mi") == 0) {
 		*sortname = "Merge In-Place Sort";
 		return mip_sort;
 	}
-*/
 
 	if(strcmp(opt, "-nq") == 0) {
 		*sortname = "New QuickSort";

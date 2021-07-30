@@ -16,6 +16,7 @@ SRC=	heap_sort.c \
 	qrsort.c \
 	rattle_sort.c \
 	merge_sort.c \
+	mip_sort.c \
 	ternary_heap.c \
 	insertion_merge.c \
 	insertion_sort.c \
@@ -28,6 +29,7 @@ SRC=	heap_sort.c \
 	weak_heap.c \
 	shell_sort.c
 
+#	insertion_sort3.c \
 #	merge_inplace.c \
 
 INCDIR= include
