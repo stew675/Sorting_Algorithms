@@ -9,7 +9,7 @@
 #include "swap.h"
 
 // The following value is arbitrary, but appears to be optimal
-#define INSERT_THRESH	12
+#define INSERT_THRESH	14
 
 typedef const int (*ilt)(const void *, const void *);
 
@@ -26,8 +26,8 @@ merge_inplace(register char *a, size_t an, size_t bn, register size_t es, regist
 	if (an==0 || bn==0 || !is_less_than(b, b-es))
 		return;
 
-	// Do insertion sort to merge if size of sub-arrays are small enough
-	if (an < INSERT_THRESH && an <= bn) {
+	// Do insertion sort to merge if the size of the sub-arrays are small enough
+	if (an < INSERT_THRESH && an <= bn && bn < (INSERT_THRESH * 2)) {
 		// Insert Sort A into B
 		for (register char *p=b, *v; p>a; p-=es)
 			for(v=p, s=p-es; v<e && is_less_than(v, s); s=v, v+=es)
@@ -35,7 +35,7 @@ merge_inplace(register char *a, size_t an, size_t bn, register size_t es, regist
 		return;
 	}
 
-	if (bn < INSERT_THRESH) {
+	if (bn < INSERT_THRESH && an < (INSERT_THRESH * 2)) {
 		// Insert Sort B into A
 		for (register char *p=b, *v; p<e; p+=es)
 			for (s=p, v=p-es; s>a && is_less_than(s, v); s=v, v-=es)
