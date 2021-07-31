@@ -5,6 +5,7 @@
 // Implements a stable in-place merge sort
 
 #include <stddef.h>
+#include <string.h>
 #include "swap.h"
 
 // The following values are arbitrary, but appear to be optimal
@@ -12,10 +13,34 @@
 #define MII_THRESH	16
 #define MSI_THRESH	24
 
+// The minimum number of bytes to swap before we switch to using memcpy
+#define BLK_THRESH	128
+
 typedef const int (*ilt)(const void *, const void *);
 
+
+// Used for larger memory swaps
+// Takes advantage of any vectorization in the optimized memcpy library functions
+static void
+swap_blk(char *a, char *b, size_t n)
+{
+	size_t tc;
+	__attribute__((aligned(64))) char t[1024];
+
+	do {
+		tc = n > 1024 ? 1024 : n;
+		memcpy(t, a, tc);
+		memcpy(a, b, tc);
+		memcpy(b, t, tc);
+		a+=tc;
+		b+=tc;
+		n-=tc;
+	} while (n > 0);
+} // swap_blk
+
+
 // Both sorted sub-arrays must be adjacent in 'a'
-// Assumes that both 'an' and 'bn' are always non-zero
+// Assumes that both 'an' and 'bn' are always non-zero upon entry
 // 'an' is the length of the first sorted section in 'a', referred to as A
 // 'bn' is the length of the second sorted section in 'a', referred to as B
 static void
@@ -29,18 +54,18 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	if (!is_less_than(b, pa))
 		return;
 
-	register char 	*e = b+bn*es, *pb=b+es, *s, *v;
+	register char 	*e = b+bn*es, *pb=b+es;
 	register WORD   t;
 
-	// Do insertion sort to merge if the collective size of the sub-arrays are small enough
+	// Use insertion sort to merge if the size of the sub-arrays is small enough
 	if ((an + bn) < MII_THRESH) {
 		if (bn < an) {
-			for (; b<e; b+=es)	// Insert Sort B into A
+			for (register char *s, *v; b<e; b+=es)	// Insert Sort B into A
 				for (s=b, v=b-es; s>a && is_less_than(s, v); s=v, v-=es)
 					swap(s, v);
 		} else {
-			for (; b>a; b-=es)	// Insert Sort A into B
-				for(v=b, s=b-es; v<e && is_less_than(v, s); s=v, v+=es)
+			for (register char *s, *v; b>a; b-=es)	// Insert Sort A into B
+				for (v=b, s=b-es; v<e && is_less_than(v, s); s=v, v+=es)
 					swap(s, v);
 		}
 		return;
@@ -50,19 +75,24 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	// of B is less than the last element of A, so we skip that comparison
 	for(; pa>a && pb<e && is_less_than(pb, pa-es); pa-=es, pb+=es);
 
-	// Swap last part of a with first part of b
-	for (s=pa, v=b; s<b; s+=es, v+=es)
-		swap(s, v);
+	// Swap last part of A with first part of B
+	if (pb-b < BLK_THRESH) {
+		for (register char *s=pa, *v=b; s<b; s+=es, v+=es)
+			swap(s, v);
+	} else {
+		swap_blk(pa, b, pb-b);
+	}
 
-	// Now merge the two sub-array pairings.  We know that (pb-b) > 0 but we
-	// need to check that either array didn't wholly swap out the other and
-	// cause the remaining portion to be zero
+	// Now recursively merge the two sub-array pairings.  We know that
+	// (pb-b) > 0 but we need to check that either array didn't wholly
+	// swap out the other and cause the remaining portion to be zero
 	if (pa>a)
 		merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
 
 	if (e>pb)
 		merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
 } // merge_inplace
+
 
 // Implements a recursive merge-sort algorithm with an optional
 // insertion sort for when the splits get too small.  'n' must
