@@ -1,90 +1,112 @@
-//			Merge In Place Sort
+//			Stable Merge In Place Sort
 //
-// Author: Stew Forster (stew675@gmail.com)	Date: 29 July 2021
-//		Adaptive Iterative Merge Sort
+// Author: Stew Forster (stew675@gmail.com)		Date: 29 July 2021
 //
-// Implements a bottom up in-place merge sort
+// Implements a stable in-place merge sort
 
 #include <stddef.h>
 #include "swap.h"
 
-// The following value is arbitrary, but appears to be optimal
-#define INSERT_THRESH	14
+// The following values are arbitrary, but appear to be optimal
+// Choose values of 1 to run the sort without insertion sorts
+#define MII_THRESH	16
+#define MSI_THRESH	24
 
 typedef const int (*ilt)(const void *, const void *);
 
-// Both sorted sub-arrays must be adjacent in a
-// an is the length of the first sorted section in a
-// bn is the length of the second sorted section in a
+// Both sorted sub-arrays must be adjacent in 'a'
+// Assumes that both 'an' and 'bn' are always non-zero
+// 'an' is the length of the first sorted section in 'a', referred to as A
+// 'bn' is the length of the second sorted section in 'a', referred to as B
 static void
-merge_inplace(register char *a, size_t an, size_t bn, register size_t es, register ilt is_less_than, register int swaptype)
+merge_inplace(register char *a, register size_t an, size_t bn, register size_t es, register ilt is_less_than, register int swaptype)
 {
-	register char	*b = a+an*es, *e = b+bn*es, *s;
+	register char	*b = a+an*es, *pa = b-es;
+
+	// If the first element of B is not less then the last element
+	// of A, then since A and B are in order, it naturally follows
+	// that [A, B] must also all be in order and we're done here
+	if (!is_less_than(b, pa))
+		return;
+
+	register char 	*e = b+bn*es, *pb=b+es, *s, *v;
 	register WORD   t;
 
-	// Return right now if we're done
-	if (an==0 || bn==0 || !is_less_than(b, b-es))
-		return;
-
-	// Do insertion sort to merge if the size of the sub-arrays are small enough
-	if (an < INSERT_THRESH && an <= bn && bn < (INSERT_THRESH * 2)) {
-		// Insert Sort A into B
-		for (register char *p=b, *v; p>a; p-=es)
-			for(v=p, s=p-es; v<e && is_less_than(v, s); s=v, v+=es)
-				swap(s, v);
-		return;
-	}
-
-	if (bn < INSERT_THRESH && an < (INSERT_THRESH * 2)) {
-		// Insert Sort B into A
-		for (register char *p=b, *v; p<e; p+=es)
-			for (s=p, v=p-es; s>a && is_less_than(s, v); s=v, v-=es)
-				swap(s, v);
+	// Do insertion sort to merge if the collective size of the sub-arrays are small enough
+	if ((an + bn) < MII_THRESH) {
+		if (bn < an) {
+			for (; b<e; b+=es)	// Insert Sort B into A
+				for (s=b, v=b-es; s>a && is_less_than(s, v); s=v, v-=es)
+					swap(s, v);
+		} else {
+			for (; b>a; b-=es)	// Insert Sort A into B
+				for(v=b, s=b-es; v<e && is_less_than(v, s); s=v, v+=es)
+					swap(s, v);
+		}
 		return;
 	}
 
-	// Find the pivot points.
-	register char *pa=a, *pb=b;
+	// Find the portion to swap.  We already know that the first element
+	// of B is less than the last element of A, so we skip that comparison
+	for(; pa>a && pb<e && is_less_than(pb, pa-es); pa-=es, pb+=es);
 
-	for (s=a; s<b && pb<e; s+=es)
-		if (is_less_than(pb, pa))
-			pb+=es;
-		else
-			pa+=es;
-	pa+=(b-s);
+	// Swap last part of a with first part of b
+	for (s=pa, v=b; s<b; s+=es, v+=es)
+		swap(s, v);
 
-	// Swap first part of b with last part of a
-	for (register char *la=pa, *fb=b; la<b; la+=es, fb+=es)
-		swap(la, fb);
-
-	// Now merge the two sub-array pairings
+	// Now merge the two sub-array pairings.  We know that (pb-b) > 0 but we
+	// need to check that either array didn't wholly swap out the other and
+	// cause the remaining portion to be zero
 	if (pa>a)
 		merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
-	merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
+
+	if (e>pb)
+		merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
 } // merge_inplace
 
+// Implements a recursive merge-sort algorithm with an optional
+// insertion sort for when the splits get too small.  'n' must
+// ALWAYS be 2 or more.  It enforces this when calling itself
 static void
-_mip(register char *a, size_t n, register size_t es, register ilt is_less_than, register int swaptype)
+merge_sort(register char *a, size_t n, register size_t es, register ilt is_less_than, register int swaptype)
 {
-	size_t m = (n+1)/2;
+	size_t m = n/2;
 
-	// Sort first and second halves
+	// Do an insertion sort on the rest if 'n' is small enough
+	if (n < MSI_THRESH) {
+		register char *p, *s, *v, *e=a+n*es;
+		register WORD   t;
+
+		for (p=a+es; p<e; p+=es)
+			for(s=p, v=p-es; s>a && is_less_than(s, v); s=v, v-=es)
+				swap(s, v);
+		return;
+	}
+
+	// Sort first and second halves only if the target 'n' will be > 1
 	if (m > 1)
-		_mip(a, m, es, is_less_than, swaptype);
+		merge_sort(a, m, es, is_less_than, swaptype);
 
-	if (n-m>1)
-		_mip(a+m*es, n-m, es, is_less_than, swaptype);
+	if ((n-m)>1)
+		merge_sort(a+m*es, n-m, es, is_less_than, swaptype);
 
-	// Now merge the two sorted sub-arrays together
+	// Now merge the two sorted sub-arrays together. We know that since
+	// n > 1, then both m and n-m MUST be non-zero, and so we will never
+	// violate the condition of not passing in zero length sub-arrays
 	merge_inplace(a, m, n-m, es, is_less_than, swaptype);
-} // _mip
+} // merge_sort
 
+// Really just a wrapper for merge_sort() to sanity check input, and set up
+// the swap functionality
 void
 mip_sort(register char *a, size_t n, register const size_t es, register ilt is_less_than)
 {
 	int	swaptype;
 
+	if (( a== NULL) || (n < 2) || (es == 0))
+		return;
+
 	SWAPINIT(a, es);
 
-	_mip(a, n, es, is_less_than, swaptype);
+	merge_sort(a, n, es, is_less_than, swaptype);
 } // mip_sort
