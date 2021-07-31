@@ -18,7 +18,6 @@
 
 typedef const int (*ilt)(const void *, const void *);
 
-
 // Used for larger memory swaps
 // Takes advantage of any vectorization in the optimized memcpy library functions
 static void
@@ -46,19 +45,20 @@ swap_blk(char *a, char *b, size_t n)
 static void
 merge_inplace(register char *a, register size_t an, size_t bn, register size_t es, register ilt is_less_than, register int swaptype)
 {
-	register char	*b = a+an*es, *pa = b-es;
+	register char	*b = a+an*es;
 
 	// If the first element of B is not less then the last element
 	// of A, then since A and B are in order, it naturally follows
 	// that [A, B] must also all be in order and we're done here
-	if (!is_less_than(b, pa))
+	if (!is_less_than(b, b-es))
 		return;
 
-	register char 	*e = b+bn*es, *pb=b+es;
-	register WORD   t;
+	register char 	*e = b+bn*es;
 
 	// Use insertion sort to merge if the size of the sub-arrays is small enough
 	if ((an + bn) < MII_THRESH) {
+		register WORD   t;
+
 		if (bn < an) {
 			for (register char *s, *v; b<e; b+=es)	// Insert Sort B into A
 				for (s=b, v=b-es; s>a && is_less_than(s, v); s=v, v-=es)
@@ -73,10 +73,27 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 
 	// Find the portion to swap.  We already know that the first element
 	// of B is less than the last element of A, so we skip that comparison
-	for(; pa>a && pb<e && is_less_than(pb, pa-es); pa-=es, pb+=es);
+	// We do a binary search here for speed as most smaller sizes will
+	// have already been mopped up by the insertion sort intercept above
+	register char 	*pa, *pb;
+	{
+		register size_t max = bn > an ? an : bn;
+		register size_t min = 1, sn = (max + min) / 2;
 
-	// Swap last part of A with first part of B
+		pa = b - sn*es;
+		pb = b + sn*es;
+
+		for (; min < max; sn = (max + min) / 2, pa = b - sn*es, pb = b + sn*es)
+			if (is_less_than(pb, pa-es))
+				min = sn + 1;
+			else
+				max = sn;
+	}
+
+	// Now swap last part of A with first part of B
 	if (pb-b < BLK_THRESH) {
+		register WORD   t;
+
 		for (register char *s=pa, *v=b; s<b; s+=es, v+=es)
 			swap(s, v);
 	} else {
@@ -125,6 +142,7 @@ merge_sort(register char *a, size_t n, register size_t es, register ilt is_less_
 	// violate the condition of not passing in zero length sub-arrays
 	merge_inplace(a, m, n-m, es, is_less_than, swaptype);
 } // merge_sort
+
 
 // Really just a wrapper for merge_sort() to sanity check input, and set up
 // the swap functionality
