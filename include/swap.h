@@ -29,7 +29,7 @@ typedef int WORD;
 	}
 
 #define exch(a, b, t)					\
-	(t = a, a = b, b = t, numswaps++)
+	(t = a, a = b, b = t)
 
 
 static void

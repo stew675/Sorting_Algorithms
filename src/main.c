@@ -332,6 +332,9 @@ parse_control_opt(char *argv[])
 		verbose = true;
 		return 1;
 	}
+
+	fprintf(stderr, "Unsupported option: %s\n", argv[0]);
+	return 1;
 } // parse_control_opt
 
 
