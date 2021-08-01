@@ -66,7 +66,7 @@ is_less_than_uint32(register const void *p1, register const void *p2)
 } // is_less_than_uint32
 
 // Used to compare two uint32_t values pointed at by the pointers given
-static int
+int
 compare_uint32(register const void *p1, register const void *p2)
 {
 	register const uint32_t *a = (const uint32_t *)p1;

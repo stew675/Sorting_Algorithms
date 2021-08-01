@@ -64,6 +64,7 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 		merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
 } // merge_inplace
 
+
 // Implements a recursive merge-sort algorithm with an optional
 // insertion sort for when the splits get too small.  'n' must
 // ALWAYS be 2 or more.  It enforces this when calling itself
@@ -96,10 +97,11 @@ merge_sort(register char *a, size_t n, register size_t es, register ilt is_less_
 	merge_inplace(a, m, n-m, es, is_less_than, swaptype);
 } // merge_sort
 
+
 // Really just a wrapper for merge_sort() to sanity check input, and set up
 // the swap functionality
 void
-mip_sort(register char *a, size_t n, register const size_t es, register ilt is_less_than)
+mip_sort(char *a, size_t n, const size_t es, ilt is_less_than)
 {
 	int	swaptype;
 

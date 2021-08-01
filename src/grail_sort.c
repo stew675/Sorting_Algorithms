@@ -31,6 +31,8 @@ extern uint64_t numswaps, numcmps;
 #define SORT_TYPE uint32_t
 #define SORT_CMP compare_uint32
 
+extern int compare_uint32(register const void *p1, register const void *p2);
+/*
 static int
 compare_uint32(register const void *p1, register const void *p2)
 {
@@ -40,6 +42,7 @@ compare_uint32(register const void *p1, register const void *p2)
 	numcmps++;
         return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
 }
+*/
 
 inline void grail_swap1(SORT_TYPE *a,SORT_TYPE *b){
 	numswaps++;
