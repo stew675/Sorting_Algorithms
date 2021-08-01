@@ -25,6 +25,7 @@ extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void four_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void GrailSort(uint32_t *arr,int Len);
 extern void insertion_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void insertion_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -93,8 +94,7 @@ test_sort(register uint32_t a[], register size_t n)
 	for(register size_t i = 1; i < n; i++)
 		if(a[i-1] > a[i]) {
 			fprintf(stderr, "Didn't sort data correctly\n");
-			print_array(a, n);
-			exit(-1);
+			return;
 		}
 } // test_sort
 
@@ -175,6 +175,11 @@ void
 	if(strcmp(opt, "-co") == 0) {
 		*sortname = "Comb Sort";
 		return comb_sort;
+	}
+
+	if(strcmp(opt, "-fo") == 0) {
+		*sortname = "Four Sort";
+		return four_sort;
 	}
 
 	if(strcmp(opt, "-gq") == 0) {
@@ -588,6 +593,10 @@ main(int argc, char *argv[])
 		sort(a, n, sizeof(*a), get_uint32_key);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &end);
+
+	if (verbose) {
+		print_array(a, n);
+	}
 
 	// Did it sort correctly?
 	test_sort(a, n);

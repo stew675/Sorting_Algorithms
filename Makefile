@@ -12,6 +12,7 @@ SRC=	heap_sort.c \
 	main.c \
 	ahm_sort.c \
 	aim_sort.c \
+	four_sort.c \
 	nqsort.c \
 	qrsort.c \
 	rattle_sort.c \
