@@ -20,18 +20,33 @@ typedef int WORD;
 #define SWAPINIT(a, es)					\
 	swaptype = (a - (char*)0 | es) % W ? 2 : es > W ? 1 : 0
 
-#define copy(a, b)					\
+// Copies from b to a, and then from c to b, in one operation
+static void
+copyfunc3(char *a, char *b, char *c, size_t n, int swaptype)
+{
+	numcopies++;
+	if (swaptype <= 1) {
+		for( ; n; a += W, b += W, n -= W) {
+			*(WORD*)a = *(WORD*)b;
+			*(WORD*)b = *(WORD*)c;
+		}
+	} else {
+		for( ; n; n--, *a++ = *b, *b++ = *c++);
+	}
+} // copyfunc3
+
+
+// Copies from b to a, and then from c to b, in one operation
+#define copy3(a, b, c)					\
 	if (swaptype) {					\
-		copyfunc(a, b, es, swaptype);		\
+		copyfunc3(a, b, c, es, swaptype);	\
 	} else {					\
 		numcopies++;				\
 		*(WORD*)(a) = *(WORD*)(b);		\
+		*(WORD*)(b) = *(WORD*)(c);		\
 	}
 
-#define exch(a, b, t)					\
-	(t = a, a = b, b = t)
-
-
+// Copies from b to a
 static void
 copyfunc(char *a, char *b, size_t n, int swaptype)
 {
@@ -45,6 +60,19 @@ copyfunc(char *a, char *b, size_t n, int swaptype)
 	}
 } // copyfunc
 
+
+// Copies from b to a
+#define copy(a, b)					\
+	if (swaptype) {					\
+		copyfunc(a, b, es, swaptype);		\
+	} else {					\
+		numcopies++;				\
+		*(WORD*)(a) = *(WORD*)(b);		\
+	}
+
+
+#define exch(a, b, t)					\
+	(t = a, a = b, b = t)
 
 static void
 swapfunc(char *a, char *b, size_t n, int swaptype)
