@@ -14,14 +14,14 @@
 #include <assert.h>
 #include "swap.h"
 
-#define KEYBUFSIZE	4096
+#define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	4096
 #define STEP 20
 
 extern void print_array(char *a, size_t n);
 
-static bool
+static inline bool
 is_sorted(char *a, register char *e, register size_t es, register size_t step, register const int (*is_lt)(const void *, const void *))
 {
 	for (register char *s=a+step; s<e; s+=step)
@@ -29,6 +29,25 @@ is_sorted(char *a, register char *e, register size_t es, register size_t step, r
 			return false;
 	return true;
 } // is_sorted
+
+
+static inline char *
+binary_search(register char *a, register size_t n, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
+{
+	register size_t lo = 0, hi = n, mid = hi / 2;
+	register char *s=a+mid*es;
+
+	while (lo < hi) {
+		if (is_lt(key, s))
+			hi = mid;
+		else
+			lo = mid + 1;
+		mid = (lo + hi) / 2;
+		s=a+mid*es;
+	}
+	return a+mid*es;
+} // binary_search
+
 
 // Both sorted sub-arrays must be adjacent in 'a'
 // Assumes that both 'an' and 'bn' are always non-zero upon entry
@@ -90,14 +109,98 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		// of the entries in the keybuffer
 		// kp MUST be > kb, or we wouldn't even be here
 		gap = kp - kb;
-		if (gap < 20) {
-			for (bw = b; bw > a; ) {
-				bw-=es;
-				copy(bw+gap, bw);
-			}
-		} else
-			memmove(a + gap, a, b - a);
+//		memmove(a + gap, a, b - a);
 
+/*
+printf("\nBefore roll\nArray: ");
+print_array(a, (e-a)/es);
+if (kp > kb) {
+	printf("Keys: ");
+	print_array(kb, (kp-kb)/es);
+}else
+	printf("Keys: []\n");
+*/
+
+		a = binary_search(a, ((b - a) / es) - 1, es, is_lt, kb);
+/*
+		size_t lo = 0, hi = ((b - a) / es) - 1, mid = hi / 2;
+		while (lo < hi) {
+			bw = a + mid * es;
+			if (is_lt(kb, bw))
+				hi = mid;
+			else
+				lo = mid + 1;
+			mid = (lo + hi) / 2;
+		}
+		a = a + mid * es;
+*/
+//printf("Pointing A at %u\n", *(uint32_t *)a);
+
+		char *ki = NULL, *ai = b - es;
+
+//		while (gap > 0 && ai > a + gap) {
+		while (kp > kb || ki != NULL) {
+			if (ki == NULL && kp > kb) {
+				ki = binary_search(a, ((ai - a) / es) + 1, es, is_lt, kp - es);
+/*
+				kp -= es;
+				size_t lo = 0, hi = ((ai - a) / es) + 1, mid = hi / 2;
+				while (lo < hi) {
+					ki = a + mid * es;
+					if (is_lt(kp, ki))
+						hi = mid;
+					else
+						lo = mid + 1;
+					mid = (lo + hi) / 2;
+				}
+				ki = a + mid * es;
+*/
+			}
+			if (ki && ai < ki) {
+				kp -= es;
+//printf("Copying kp pointing at %u to ai+gap pointing at %u\n", *(uint32_t *)kp, *(uint32_t *)(ai + gap));
+				copy(ai + gap, kp);
+				gap -=es;
+				ki = NULL;
+			} else {
+//printf("Copying ai pointing at %u to ai+gap pointing at %u\n", *(uint32_t *)ai, *(uint32_t *)(ai + gap));
+				copy(ai + gap, ai);
+				if (ai > a) {
+					ai -= es;
+				} else {
+//					kp += es;
+					break;
+				}
+			}
+		}
+		// Copy any remainder left in k into A
+		for (; kb < kp; a += es, kb += es) {
+//printf("Copying kb pointing at %u to a pointing at %u\n", *(uint32_t *)kb, *(uint32_t *)a);
+			copy(a, kb);
+		}
+//printf("\nAfter roll\nArray: ");
+//print_array(a, (e-a)/es);
+
+		a = binary_search(a, ((bp - a) / es) - 1, es, is_lt, bp);
+/*
+		size_t lo = 0, hi = ((bp - a) / es) - 1, mid = hi / 2;
+		while (lo < hi) {
+			ki = a + mid * es;
+			if (is_lt(bp, ki))
+				hi = mid;
+			else
+				lo = mid + 1;
+			mid = (lo + hi) / 2;
+		}
+		a = a + mid * es;
+*/
+		kb = keybuf;
+		b = bp;
+		ap = a;
+		kp = kb;
+//printf("Pointing A at %u, B at %u\n", *(uint32_t *)a, *(uint32_t *)b);
+
+/*
 		// Now merge K and AP into A
 		for (bw = a + gap; kb < kp && bw < bp; a += es)
 			if (is_lt(kb, bw)) {
@@ -108,15 +211,10 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 				bw+=es;
 			}
 
-		// Copy any remainder left in k into A
-		for (; kb < kp; a += es, kb += es)
-			copy(a, kb);
+*/
 
 		// Set-up for next loop
-		kb = keybuf;
-		b += gap;
-		a = ap;
-		kp = kb;
+//		a = ap;
 	}
 } // roller_merge
 
