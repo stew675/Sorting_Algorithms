@@ -13,235 +13,84 @@ typedef const int (*ilt)(const void *, const void *);
 		swp = true;		\
 	}				\
 
-#if 0
-#define sort3(p1, p2, p3, is_lt, swp)			\
-{							\
-	if (is_lt(p3, p2)) {				\
-		/* p3 < p2 */				\
-		if (is_lt(p2, p1)) {			\
-			/* p3 < p2 < p1 */		\
-			swap(p1, p3);			\
-			swp = true;			\
-		} else {				\
-			/* p1/p3 < p2 */		\
-			if (is_lt(p3, p1)) {		\
-				/* p3 < p1 < p2 */	\
-				swap(p1, p2);		\
-				swap(p1, p3);		\
-				swp = true;		\
-			} else {			\
-				/* p1 < p3 < p2 */	\
-				swap(p2, p3);		\
-				swp = true;		\
-			}				\
-		}					\
-	} else {					\
-		/* p2 < p3 */				\
-		if (is_lt(p2, p1)) {			\
-			/* p2 < p1/p3 */		\
-			if (is_lt(p3, p1)) {		\
-				/* p2 < p3 < p1 */	\
-				swap(p1, p3);		\
-				swap(p1, p2);		\
-				swp = true;		\
-			} else {			\
-				/* p2 < p1 < p3 */	\
-				swap(p1, p2);		\
-				swp = true;		\
-			}				\
-		} else {				\
-			/* p1 < p2 < p3 */		\
-		}					\
-	}						\
+// Sort 1 plus pair
+// p2 and p3 arrive at us already sorted
+#define sort1pp(p1, p2, p3, is_lt, swp)					\
+	/* p2 < p3 */							\
+	if (!is_lt(p2, p1)) {						\
+		/* p1 < p2 < p3 */					\
+	} else if (is_lt(p3, p1)) {					\
+		/* p2 < p3 < p1 */					\
+		swap(p1, p2);						\
+		swap(p2, p3);						\
+		swp = true;						\
+	} else {							\
+		/* p2 < p1 < p3 */					\
+		swap(p1, p2);						\
+		swp = true;						\
+	}
+
+// Sort pair plus 1 more 
+// p1 and p2 arrive at us already sorted
+#define sortpp1(p1, p2, p3, is_lt, swp)					\
+	/* p1 < p2 */							\
+	if (!is_lt(p3, p2)) {						\
+		/* p1 < p2 < p3 */					\
+	} else if (is_lt(p3, p1)) {					\
+		/* p3 < p1 < p2 */					\
+		swap(p2, p3);						\
+		swap(p1, p2);						\
+		swp = true;						\
+	} else {							\
+		/* p1 < p3 < p2 */					\
+		swap(p1, p2);						\
+		swp = true;						\
+	}
+
+
+// Sort 2 pairs
+#define sort2pairs(p1, p2, p3, p4, is_lt, swp)				\
+{									\
+	/* p1 < p2 and p3 < p4 */					\
+	if (!is_lt(p3, p2)) {						\
+		/* p1 < p2 < p3 < p4 */					\
+	} else if (is_lt(p4, p1)) {					\
+		/* p3 < p4 < p1 < p2 */					\
+		swap(p1, p3);						\
+		swap(p2, p4);						\
+		swp = true;						\
+	} else {							\
+		/* p1 < p2, p3 < p4, p1 < p4, p3 < p2 */		\
+		if (is_lt(p4, p2)) {					\
+			/* p1/p3 < p4 < p2 */				\
+			if (is_lt(p3, p1)) {				\
+				/* p3 < p1 < p4 < p2 */			\
+				swap(p1, p3);				\
+				swap(p2, p4);				\
+				swap(p2, p3);				\
+				swp = true;				\
+			} else {					\
+				/* p1 < p3 < p4 < p2 */			\
+				swap(p2, p3);				\
+				swap(p3, p4);				\
+				swp = true;				\
+			}						\
+		} else {						\
+			/* p1/p3 < p2 < p4 */				\
+			if (is_lt(p3, p1)) {				\
+				/* p3 < p1 < p2 < p4 */			\
+				swap(p2, p3);				\
+				swap(p1, p2);				\
+				swp = true;				\
+			} else {					\
+				/* p1 < p3 < p2 < p4 */			\
+				swap(p2, p3);				\
+				swp = true;				\
+			}						\
+		}							\
+	}								\
 }
 
-#define sort4(p1, p2, p3, p4, is_lt, swp)				\
-	if (is_lt(p3, p2)) {						\
-		/* p3 < p2 */						\
-		if (is_lt(p4, p3)) {					\
-			/* p4 < p3 < p2	*/				\
-			if (is_lt(p3, p1)) {				\
-				/* p4 < p3 < p1/p2 */			\
-				if (is_lt(p2, p1)) {			\
-					/* p4 < p3 < p2 < p1 */		\
-					swap(p1, p4);			\
-					swap(p2, p3);			\
-					swp = true;			\
-				} else {				\
-					/* p4 < p3 < p1 < p2 */		\
-					swap(p1, p4);			\
-					swap(p2, p4);			\
-					swap(p2, p3);			\
-					swp = true;			\
-				}					\
-			} else {					\
-				/* p1/p4 < p3 < p2 */			\
-				if (is_lt(p4, p1)) {			\
-					/* p4 < p1 < p3 < p2 */		\
-					swap(p1, p2);			\
-					swap(p1, p4);			\
-					swp = true;			\
-				} else {				\
-					/* p1 < p4 < p3 < p2 */		\
-					swap(p2, p4);			\
-					swp = true;			\
-				}					\
-			}						\
-		} else {						\
-			/* p3 < p2/p4 */				\
-			if (is_lt(p4, p2)) {				\
-				/* p3 < p4 < p2 */			\
-				if (is_lt(p4, p1)) {			\
-					/* p3 < p4 < p1/p2 */		\
-					if (is_lt(p2, p1)) {		\
-						/* p3 < p4 < p2 < p1 */	\
-						swap(p1, p3);		\
-						swap(p2, p3);		\
-						swap(p2, p4);		\
-						swp = true;		\
-					} else {			\
-						/* p3 < p4 < p1 < p2 */	\
-						swap(p1, p3);		\
-						swap(p2, p4);		\
-						swp = true;		\
-					}				\
-				} else {				\
-					/* p1/p3 < p4 < p2 */		\
-					if (is_lt(p3, p1)) {		\
-						/* p3 < p1 < p4 < p2 */	\
-						swap(p1, p3);		\
-						swap(p2, p4);		\
-						swap(p2, p3);		\
-						swp = true;		\
-					} else {			\
-						/* p1 < p3 < p4 < p2 */	\
-						swap(p3, p2);		\
-						swap(p3, p4);		\
-						swp = true;		\
-					}				\
-				}					\
-			} else {					\
-				/* p3 < p2 < p4 */			\
-				if (is_lt(p2, p1)) {			\
-					/* p3 < p2 < p1/p4 */		\
-					if (is_lt(p4, p1)) {		\
-						/* p3 < p2 < p4 < p1 */	\
-						swap(p3, p1);		\
-						swap(p3, p4);		\
-						swp = true;		\
-					} else {			\
-						/* p3 < p2 < p1 < p4 */	\
-						swap(p1, p3);		\
-						swp = true;		\
-					}				\
-				} else {				\
-					/* p1/p3 < p2 < p4 */		\
-					if (is_lt(p3, p1)) {		\
-						/* p3 < p1 < p2 < p4 */	\
-						swap(p1, p2);		\
-						swap(p1, p3);		\
-						swp = true;		\
-					} else {			\
-						/* p1 < p3 < p2 < p4 */	\
-						swap(p2, p3);		\
-						swp = true;		\
-					}				\
-				}					\
-			}						\
-		}							\
-	} else {							\
-		/* p2 < p3 */						\
-		if (is_lt(p2, p1)) {					\
-			/* p2 < p1/p3 */				\
-			if (is_lt(p3, p1)) {				\
-				/* p2 < p3 < p1 */			\
-				if (is_lt(p4, p3)) {			\
-					/* p2/p4 < p3 < p1 */		\
-					if (is_lt(p4, p2)) {		\
-						/* p4 < p2 < p3 < p1 */	\
-						swap(p1, p4);		\
-						swp = true;		\
-					} else {			\
-						/* p2 < p4 < p3 < p1 */	\
-						swap(p1, p4);		\
-						swap(p1, p2);		\
-						swp = true;		\
-					}				\
-				} else {				\
-					/* p2 < p3 < p1/p4 */		\
-					if (is_lt(p4, p1)) {		\
-						/* p2 < p3 < p4 < p1 */	\
-						swap(p1, p2);		\
-						swap(p2, p4);		\
-						swap(p2, p3);		\
-						swp = true;		\
-					} else {			\
-						/* p2 < p3 < p1 < p4 */	\
-						swap(p1, p3);		\
-						swap(p1, p2);		\
-						swp = true;		\
-					}				\
-				}					\
-			} else {					\
-				/* p2 < p1 < p3 */			\
-				if (is_lt(p4, p1)) {			\
-					/* p2/p4 < p1 < p3 */		\
-					if (is_lt(p4, p2)) {		\
-						/* p4 < p2 < p1 < p3 */	\
-						swap(p1, p3);		\
-						swap(p1, p4);		\
-						swp = true;		\
-					} else {			\
-						/* p2 < p4 < p1 < p3 */	\
-						swap(p1, p3);		\
-						swap(p1, p4);		\
-						swap(p1, p2);		\
-						swp = true;		\
-					}				\
-				} else {				\
-					/* p2 < p1 < p3/p4 */		\
-					if (is_lt(p4, p3)) {		\
-						/* p2 < p1 < p4 < p3 */	\
-						swap(p1, p2);		\
-						swap(p3, p4);		\
-						swp = true;		\
-					} else {			\
-						/* p2 < p1 < p3 < p4 */	\
-						swap(p1, p2);		\
-						swp = true;		\
-					}				\
-				}					\
-			}						\
-		} else {						\
-			/* p1 < p2 < p3 */				\
-			if (is_lt(p4, p2)) {				\
-				/* p1/p4 < p2 < p3 */			\
-				if (is_lt(p4, p1)) {			\
-					/* p4 < p1 < p2 < p3 */		\
-					swap(p1, p2);			\
-					swap(p1, p4);			\
-					swap(p3, p4);			\
-					swp = true;			\
-				} else {				\
-					/* p1 < p4 < p2 < p3 */		\
-					swap(p2, p3);			\
-					swap(p2, p4);			\
-					swp = true;			\
-				}					\
-			} else {					\
-				/* p1 < p2 < p3/p4 */			\
-				if (is_lt(p4, p3)) {			\
-					/* p1 < p2 < p4 < p3 */		\
-					swap(p3, p4);			\
-					swp = true;			\
-				} else {				\
-					/* p1 < p2 < p3 < p4 */		\
-					/* IS SORTED - DO NOTHING */	\
-				}					\
-			}						\
-		}							\
-	}
-#endif
 
 static bool
 four_sort_forwards(register char *a, size_t n, register const size_t es, register ilt is_less_than, register int swaptype, register size_t step)
@@ -255,7 +104,7 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 
         register char *a1, *a2, *a3, *a4;
         register WORD t;
-	bool swapped = false;
+	register bool swapped = false;
 
 	for (size_t s = 0; s < step; s+=es) {
 		if ((e-a) < s)
@@ -266,18 +115,18 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 		if ((e - a1) < step)
 			break;
 
-		a2 = a1 + step;
-
-		sort2(a1, a2, is_less_than, swapped);
-
-		if ((e - a2) < step)
-			continue;
-
 		for (;;) {
+			a2 = a1 + step;
+
+			sort2(a1, a2, is_less_than, swapped);
+
+			if ((e - a2) < step)
+				break;
+
 			a3 = a2 + step;
 
 			if ((e - a3) < step) {
-				sort3(a1, a2, a3, is_less_than, swapped);
+				sortpp1(a1, a2, a3, is_less_than, swapped);
 				break;
 			}
 
@@ -285,12 +134,11 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 
 			sort2(a3, a4, is_less_than, swapped);
 
-			sort4(a1, a2, a3, a4, is_less_than, swapped);
+			sort2pairs(a1, a2, a3, a4, is_less_than, swapped);
 
-			a1 = a3;
-			a2 = a4;
+			a1 = a4;
 
-			if ((e - a2) < step)
+			if ((e-a1) < step)
 				break;
 		}
 	}
@@ -321,29 +169,30 @@ four_sort_backwards(register char *a, size_t n, register const size_t es, regist
 		if ((a1-a) < step)
 			break;
 
-		a2 = a1 - step;
-
-		if ((a2-a) < step) {
-			sort2(a2, a1, is_less_than, swapped);
-			continue;
-		}
-
 		for (;;) {
+			a2 = a1 - step;
+
+			sort2(a2, a1, is_less_than, swapped);
+
+			if ((a2-a) < step)
+				break;
+
 			a3 = a2 - step;
 
 			if ((a3 - a) < step) {
-				sort3(a3, a2, a1, is_less_than, swapped);
+				sort1pp(a3, a2, a1, is_less_than, swapped);
 				break;
 			}
 
 			a4 = a3 - step;
 
-			sort4(a4, a3, a2, a1, is_less_than, swapped);
+			sort2(a4, a3, is_less_than, swapped);
 
-			a1 = a3;
-			a2 = a4;
+			sort2pairs(a4, a3, a2, a1, is_less_than, swapped);
 
-			if ((a2-a) < step)
+			a1 = a4;
+
+			if ((a1-a) < step)
 				break;
 		}
 	}
@@ -351,33 +200,10 @@ four_sort_backwards(register char *a, size_t n, register const size_t es, regist
 } // four_sort_backwards
 
 
-static void
-four_sort2(register char *a, size_t n, register const size_t es, register ilt is_less_than, register int swaptype)
-{
-        register char *s, *p, *v, *u;
-        register char *e = a+n*es;
-        register WORD t;
+static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 101, 131, 179, 239, 317, 421, 563, 751, 997, 1327, 1777,
+			       2357, 3137, 4201, 5591, 7459, 9949, 13267, 17707, 23599, 31469, 41953, 55933, 74573, 99439, 4294967295};
 
-        for (s=a+4*es; a<e; a=s, s+=4*es)
-                for (p=a+es; p<s; p+=es)
-                        for (v=p, u=p-es; v>a && is_less_than(v, u); v=u, u-=es)
-                                swap(v, u);
-} // four_sort
-
-
-static void
-eight_sort(register char *a, size_t n, register const size_t es, register ilt is_less_than, register int swaptype)
-{
-        register char *s, *p, *v, *u;
-        register char *e = a+n*es;
-        register WORD t;
-
-        for (s=a+8*es; a<e; a=s, s+=8*es)
-                for (p=a+es; p<s; p+=es)
-                        for (v=p, u=p-es; v>a && is_less_than(v, u); v=u, u-=es)
-                                swap(v, u);
-} // four_sort
-
+//static const size_t steps[] = {1, 2, 5, 7, 13, 23, 37, 59, 101, 167, 277, 461, 769, 1277, 2129, 3547, 5903, 9851, 16411, 27361, 45587, 75979, 126631, UINT32_MAX};
 
 void
 four_sort(register char *a, size_t n, register const size_t es, register ilt is_less_than)
@@ -386,38 +212,30 @@ four_sort(register char *a, size_t n, register const size_t es, register ilt is_
         int swaptype;
 	int swapped;
 	int onepasses = 0;
+	int pos = 0;
+	size_t step = n;
 
         SWAPINIT(a, es);
 
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 5003);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 2503);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 1259);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 631);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 317);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 163);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 83);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 43);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 23);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 13);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 7);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 5);
-
-	four_sort_forwards(a, n, es, is_less_than, swaptype, 3);
-	four_sort_backwards(a, n, es, is_less_than, swaptype, 2);
-
+#define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	for (;;) {
-		onepasses++;
-		if (!four_sort_forwards(a, n, es, is_less_than, swaptype, 1))
-			break;
-		onepasses++;
-		if (!four_sort_backwards(a, n, es, is_less_than, swaptype, 1))
-			break;
+		step = next_step;
+		swapped = four_sort_forwards(a, n, es, is_less_than, swaptype, step);
+		if (step == 1) {
+			onepasses++;
+		 	if (!swapped)
+				break;
+		}
+
+		step = next_step;
+		swapped = four_sort_backwards(a, n, es, is_less_than, swaptype, step);
+		if (step == 1) {
+			onepasses++;
+		 	if (!swapped)
+				break;
+		}
 	}
+#undef next_step
 
 	printf("Four Sort took %d onepasses\n", onepasses);
 } // four_sort

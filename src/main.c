@@ -38,6 +38,7 @@ extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void roller_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void selection_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -245,6 +246,11 @@ void
 	if(strcmp(opt, "-ra") == 0) {
 		*sortname = "Rattle Sort";
 		return rattle_sort;
+	}
+
+	if(strcmp(opt, "-ro") == 0) {
+		*sortname = "Roller Sort";
+		return roller_sort;
 	}
 
 	if(strcmp(opt, "-sh") == 0) {

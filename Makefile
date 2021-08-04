@@ -17,6 +17,7 @@ SRC=	heap_sort.c \
 	qrsort.c \
 	rattle_sort.c \
 	merge_sort.c \
+	roller_sort.c \
 	mip_sort.c \
 	ternary_heap.c \
 	insertion_merge.c \
@@ -49,7 +50,7 @@ BIN=ts
 
 CC= gcc
 OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
-DEBUG_FLAGS=
+DEBUG_FLAGS=-g
 LIBS=
 
 ######################################################################################

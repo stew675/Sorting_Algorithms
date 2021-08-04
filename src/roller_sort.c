@@ -11,28 +11,129 @@
 #include <stdbool.h>
 #include <alloca.h>
 #include <string.h>
-#include "newswap.h"
+#include <assert.h>
+#include "swap.h"
 
-#define STEP 24
+#define KEYBUFSIZE	4096
+//#define KEYBUFSIZE	16384
+//#define KEYBUFSIZE	4096
+#define STEP 20
+
+extern void print_array(char *a, size_t n);
 
 static bool
-is_sorted(char *a, register char *e, register size_t es, register size_t step, register const int (*is_less_than)(const void *, const void *))
+is_sorted(char *a, register char *e, register size_t es, register size_t step, register const int (*is_lt)(const void *, const void *))
 {
 	for (register char *s=a+step; s<e; s+=step)
-		if (is_less_than(s, s-es))
+		if (is_lt(s, s-es))
 			return false;
 	return true;
 } // is_sorted
 
+// Both sorted sub-arrays must be adjacent in 'a'
+// Assumes that both 'an' and 'bn' are always non-zero upon entry
+// 'an' is the length of the first sorted section in 'a', referred to as A
+// 'bn' is the length of the second sorted section in 'a', referred to as B
+static void
+roller_merge(register char *a, register size_t an, size_t bn, register size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
+{
+        register char   *b = a+an*es;
+
+        // If the first element of B is not less then the last element
+        // of A, then since A and B are in order, it naturally follows
+        // that [A, B] must also all be in order and we're done here
+        if (!is_lt(b, b-es))
+                return;
+
+	char		keybuf[KEYBUFSIZE];
+        register char   *e = b+bn*es, *ap = a, *bp = b, *bw;
+	register char	*kb = keybuf, *kp = kb, *ke = kb + KEYBUFSIZE;	// kp = key position
+	register WORD	t;
+	register size_t gap;
+
+	for (ap = a; ; a = (kp==kb ? ap : a)) {
+		if (ap < b) {
+			if (is_lt(bp, ap)) {
+				swap(bp, ap);
+				ap += es;
+				if (bp+es == e)
+					continue;
+				if (!is_lt(bp+es, bp))
+					continue;
+			} else {
+				ap += es;
+				continue;
+			}
+
+			// Keep going if keybuf not yet full
+			if (kp + es <= ke) {
+				copy(kp, bp);
+				bp+=es;
+				kp+=es;
+				if (kp < ke)
+					continue;
+			}
+
+			// keybuf can't hold even one element.
+			// Fallback to slow default of just bubbling the values up
+			if (kp == kb) {
+				for (bw = bp + es ; bw < e && is_lt(bw, bw-es); bw += es)
+					swap(bw, bw-es);
+				continue;
+			}
+		}
+
+		if (ap == bp)
+			break;
+
+		// First move everything from A onwards up by the size
+		// of the entries in the keybuffer
+		// kp MUST be > kb, or we wouldn't even be here
+		gap = kp - kb;
+		if (gap < 20) {
+			for (bw = b; bw > a; ) {
+				bw-=es;
+				copy(bw+gap, bw);
+			}
+		} else
+			memmove(a + gap, a, b - a);
+
+		// Now merge K and AP into A
+		for (bw = a + gap; kb < kp && bw < bp; a += es)
+			if (is_lt(kb, bw)) {
+				copy(a, kb);
+				kb+=es;
+			} else {
+				copy(a, bw);
+				bw+=es;
+			}
+
+		// Copy any remainder left in k into A
+		for (; kb < kp; a += es, kb += es)
+			copy(a, kb);
+
+		// Set-up for next loop
+		kb = keybuf;
+		b += gap;
+		a = ap;
+		kp = kb;
+	}
+} // roller_merge
+
+
 void
-aim_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
+roller_sort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
 {
 	register char	*se = a + (n * es);	// se means Source End
 	register size_t	step;
+	int swaptype;
+	WORD t;
+
+	SWAPINIT(a, es);
 
 	// Choose a step size that divides the problem set as evenly as possible
 	for (step = n; step > STEP; step = (step + 1) / 2);
-	step *= es;
+	step = step * es;
 
 	// First pass over a, doing insertion sorts every STEP intervals
 	do {
@@ -43,117 +144,44 @@ aim_sort(register char *a, size_t n, register const size_t es, register const in
 				be = se;
 			}
 			for (register char *s, *p=b+es; p < be; p+=es) {
-				if (!is_less_than(p, p-es))
+				if (!is_lt(p, p-es))
 					continue;
 
 				s = p - es;
-				copy(temp, p, es);
-				copy(p, s, es);
-				while ((s > b) && is_less_than(temp, s-es)) {
-					copy(s, s-es, es);
+				copy(temp, p);
+				copy(p, s);
+				while ((s > b) && is_lt(temp, s-es)) {
+					copy(s, s-es);
 					s -= es;
 				}
-				copy(s, temp, es);
+				copy(s, temp);
 			}
 		}
 	} while (0);
 
 	// Check if we're done
-	if (is_sorted(a, se, es, step, is_less_than)) {
+	if (is_sorted(a, se, es, step, is_lt)) {
 		return;
 	}
-
-	register char *wrk;
-
-	if ((wrk = (char *)malloc(n * es)) == NULL)
-		return;		// Out of memory
-
-	register char *src = a, *dst = wrk;
-	register char *de = dst + n * es;	// Destination End
 
 	for (;;) {
 		register char *b1p, *b1e;	// bucket 1 position, bucket 1 end
 
 		// Loop over bucket pairs in src, merging them together into dst
-		for (b1p = src, b1e = b1p + step; b1e < se; b1p+=step, b1e=b1p+step) {
+		for (b1p = a, b1e = b1p + step; b1e < se; b1p+=step*2, b1e=b1p+step) {
 			register char *b2p = b1e, *b2e = b1e + step;	// Bucket 2 position and end
 
 			if (b2e > se)
 				b2e = se;
 
-			// Merge both buckets into the destination.  I think that this
-			// code looks ugly, but it appears to be the fastest way to run
-			// these loops, so it is what it is for that reason
-			for (;; dst+=es) {
-				if (is_less_than(b2p, b1p)) {
-					copy(dst, b2p, es);
-					if ((b2p += es) == b2e)
-						goto copy_b1_remainder;
-				} else {
-					copy(dst, b1p, es);
-					if ((b1p += es) == b1e)
-						goto copy_b2_remainder;
-				}
-			}
-
-copy_b1_remainder:
-			// Copy any remainder in b1 over to the destination
-			// Increment dst 'cos we didn't do it before goto's above
-			dst += es;
-			do {
-				copy(dst, b1p, es);
-				b1p += es;
-				dst += es;
-			} while (b1p < b1e);
-			continue;
-
-copy_b2_remainder:
-			// Copy any remainder in b2 over to the destination
-			// Increment dst 'cos we didn't do it before goto's above
-			dst += es;
-			do {
-				copy(dst, b2p, es);
-				b2p += es;
-				dst += es;
-			} while (b2p < b2e);
-			continue;
-		}
-
-		// Copy any remainder in b1 over to the destination
-		// b2 can't have any remainder by this stage
-		if (b1e > se)
-			b1e = se;
-
-		while (b1p < b1e) {
-			copy(dst, b1p, es);
-			dst += es;
-			b1p += es;
+			roller_merge(b1p, step / es, (b2e - b2p) / es, es, is_lt, swaptype);
 		}
 
 		// Double our bucket step size before checking if we're done
 		step += step;
 
 		// Check if we're done
-		if (is_sorted((src == a ? wrk : a), de, es, step, is_less_than))
+		if (is_sorted(a, se, es, step, is_lt))
 			break;
-
-		// Swap src with dst and restart the loop
-		if (src == a) {
-			src = wrk;
-			dst = a;
-		} else {
-			src = a;
-			dst = wrk;
-		}
-		se = src + n * es;
-		de = dst + n * es;
 	}
-
-	if (src == a) {
-		// Copy wrk back to a
-		memmove(a, wrk, se-src);
-	}
-
-	// Release our work space
-	free(wrk);
-} // aim_sort
+} // roller_sort
