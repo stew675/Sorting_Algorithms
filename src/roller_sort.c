@@ -65,7 +65,7 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
                 return;
 
 	char		keybuf[KEYBUFSIZE];
-        register char   *e = b+bn*es, *ap = a, *bp = b, *bw;
+        register char   *e = b+bn*es, *ap = a, *bp = b, *wp;
 	register char	*kb = keybuf, *kp = kb, *ke = kb + KEYBUFSIZE;	// kp = key position
 	register WORD	t;
 	register size_t gap;
@@ -96,8 +96,8 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 			// keybuf can't hold even one element.
 			// Fallback to slow default of just bubbling the values up
 			if (kp == kb) {
-				for (bw = bp + es ; bw < e && is_lt(bw, bw-es); bw += es)
-					swap(bw, bw-es);
+				for (wp = bp + es ; wp < e && is_lt(wp, wp-es); wp += es)
+					swap(wp, wp-es);
 				continue;
 			}
 		}
@@ -105,27 +105,35 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		if (ap == bp)
 			break;
 
-		a = binary_search(a, ((b - a) / es) - 1, es, is_lt, kb);
+		// Start of keybuf merging with A section
+
 		gap = kp - kb;	// Gap refers to the size of the keybuffer
 
-/*
-		char *ki = NULL, *ai = b - es;
+		// Move A forwards until we reach where the first key will
+		// start to merge with it.  This just reduces the amount of
+		// data we need to work on for comparisons
+		a = binary_search(a, ((ap - a) / es) - 1, es, is_lt, kb);
 
-		while (kp > kb || ki != NULL) {
-			if (ki == NULL && kp > kb)
-				ki = binary_search(a, ((ai - a) / es) + 1, es, is_lt, kp - es);
-			if (ki && ai < ki) {
-				kp -= es;
-				copy(ai + gap, kp);
-				gap -=es;
-				ki = NULL;
-			} else {
-				copy(ai + gap, ai);
-				if (ai > a) {
-					ai -= es;
+/*
+		// Everything from ap onwards is unsorted but won't be touched
+		// by the following merge operation, so just move it wholesale
+		// forwards by the gap amount
+		memmove(ap+gap, ap, b - ap);
+
+		// We'll use the "worker pointer" to track the value within the
+		// [a..ap-es] range that we're comparing with the keybuf keys
+		for (wp = ap - es; kp > kb; ) {
+			if (is_lt(kp-es, wp)) {
+				copy(wp + gap, wp);
+				if (wp > a) {
+					wp -= es;
 				} else {
 					break;
 				}
+			} else {
+				kp -= es;
+				copy(wp + gap, kp);
+				gap -=es;
 			}
 		}
 */
@@ -136,13 +144,13 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		memmove(a + gap, a, b - a);
 
 		// Now merge K and AP into A
-		for (bw = a + gap; kb < kp && bw < bp; a += es)
-			if (is_lt(kb, bw)) {
+		for (wp = a + gap; kb < kp && wp < bp; a += es)
+			if (is_lt(kb, wp)) {
 				copy(a, kb);
 				kb+=es;
 			} else {
-				copy(a, bw);
-				bw+=es;
+				copy(a, wp);
+				wp+=es;
 			}
 
 		// Copy any remainder left in k into A
@@ -167,6 +175,9 @@ roller_sort(register char *a, size_t n, register const size_t es, register const
 	register size_t	step;
 	int swaptype;
 	WORD t;
+
+	// If es is too large, someone needs to adjust the keybufsize
+	assert(KEYBUFSIZE >= es);
 
 	SWAPINIT(a, es);
 
