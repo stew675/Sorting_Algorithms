@@ -105,102 +105,36 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		if (ap == bp)
 			break;
 
-		// First move everything from A onwards up by the size
-		// of the entries in the keybuffer
-		// kp MUST be > kb, or we wouldn't even be here
-		gap = kp - kb;
-//		memmove(a + gap, a, b - a);
-
-/*
-printf("\nBefore roll\nArray: ");
-print_array(a, (e-a)/es);
-if (kp > kb) {
-	printf("Keys: ");
-	print_array(kb, (kp-kb)/es);
-}else
-	printf("Keys: []\n");
-*/
-
 		a = binary_search(a, ((b - a) / es) - 1, es, is_lt, kb);
-/*
-		size_t lo = 0, hi = ((b - a) / es) - 1, mid = hi / 2;
-		while (lo < hi) {
-			bw = a + mid * es;
-			if (is_lt(kb, bw))
-				hi = mid;
-			else
-				lo = mid + 1;
-			mid = (lo + hi) / 2;
-		}
-		a = a + mid * es;
-*/
-//printf("Pointing A at %u\n", *(uint32_t *)a);
+		gap = kp - kb;	// Gap refers to the size of the keybuffer
 
+/*
 		char *ki = NULL, *ai = b - es;
 
-//		while (gap > 0 && ai > a + gap) {
 		while (kp > kb || ki != NULL) {
-			if (ki == NULL && kp > kb) {
+			if (ki == NULL && kp > kb)
 				ki = binary_search(a, ((ai - a) / es) + 1, es, is_lt, kp - es);
-/*
-				kp -= es;
-				size_t lo = 0, hi = ((ai - a) / es) + 1, mid = hi / 2;
-				while (lo < hi) {
-					ki = a + mid * es;
-					if (is_lt(kp, ki))
-						hi = mid;
-					else
-						lo = mid + 1;
-					mid = (lo + hi) / 2;
-				}
-				ki = a + mid * es;
-*/
-			}
 			if (ki && ai < ki) {
 				kp -= es;
-//printf("Copying kp pointing at %u to ai+gap pointing at %u\n", *(uint32_t *)kp, *(uint32_t *)(ai + gap));
 				copy(ai + gap, kp);
 				gap -=es;
 				ki = NULL;
 			} else {
-//printf("Copying ai pointing at %u to ai+gap pointing at %u\n", *(uint32_t *)ai, *(uint32_t *)(ai + gap));
 				copy(ai + gap, ai);
 				if (ai > a) {
 					ai -= es;
 				} else {
-//					kp += es;
 					break;
 				}
 			}
 		}
-		// Copy any remainder left in k into A
-		for (; kb < kp; a += es, kb += es) {
-//printf("Copying kb pointing at %u to a pointing at %u\n", *(uint32_t *)kb, *(uint32_t *)a);
-			copy(a, kb);
-		}
-//printf("\nAfter roll\nArray: ");
-//print_array(a, (e-a)/es);
-
-		a = binary_search(a, ((bp - a) / es) - 1, es, is_lt, bp);
-/*
-		size_t lo = 0, hi = ((bp - a) / es) - 1, mid = hi / 2;
-		while (lo < hi) {
-			ki = a + mid * es;
-			if (is_lt(bp, ki))
-				hi = mid;
-			else
-				lo = mid + 1;
-			mid = (lo + hi) / 2;
-		}
-		a = a + mid * es;
 */
-		kb = keybuf;
-		b = bp;
-		ap = a;
-		kp = kb;
-//printf("Pointing A at %u, B at %u\n", *(uint32_t *)a, *(uint32_t *)b);
 
-/*
+		// First move everything from A onwards up by the size
+		// of the entries in the keybuffer
+		// kp MUST be > kb, or we wouldn't even be here
+		memmove(a + gap, a, b - a);
+
 		// Now merge K and AP into A
 		for (bw = a + gap; kb < kp && bw < bp; a += es)
 			if (is_lt(kb, bw)) {
@@ -211,10 +145,17 @@ if (kp > kb) {
 				bw+=es;
 			}
 
-*/
+		// Copy any remainder left in k into A
+		for (; kb < kp; a += es, kb += es)
+			copy(a, kb);
 
 		// Set-up for next loop
-//		a = ap;
+		a = binary_search(ap, ((bp - ap) / es) - 1, es, is_lt, bp);
+		kb = keybuf;
+		b = bp;
+		ap = a;
+		kp = kb;
+//printf("Pointing A at %u, B at %u\n", *(uint32_t *)a, *(uint32_t *)b);
 	}
 } // roller_merge
 
