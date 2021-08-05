@@ -24,7 +24,7 @@
 #define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	4096
-#define STEP 20
+#define STEP 50
 
 extern void print_array(char *a, size_t n);
 
@@ -77,6 +77,33 @@ binary_search(register char *a, register size_t n, register size_t es, register 
 } // binary_search
 
 
+static inline char *
+skip_search(register char *a, register char *e, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
+{
+	register size_t skip = 0;
+
+	if (is_lt(key, a))
+		return a;
+	a += es;
+
+	for (;;) {
+		if (a == e && skip < 2) {
+			return a;
+		} else if (a >= e) {
+			skip = (skip + 1) / 2;
+			a -= skip*es;
+		} else if(is_lt(key, a)) {
+			if (skip > 1)
+				for (a-=(skip-1)*es; !is_lt(key, a); a+=es);
+			return a;
+		} else {
+			skip++;
+			a += skip*es;
+		}
+	}
+} // skip_search
+
+
 // Both sorted sub-arrays must be adjacent in 'a'
 // Assumes that both 'an' and 'bn' are always non-zero upon entry
 // 'an' is the length of the first sorted section in 'a', referred to as A
@@ -93,13 +120,18 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
                 return;
 
 	char		keybuf[KEYBUFSIZE];
-        register char   *e = b+bn*es, *ap = a, *bp = b, *wp;
+        register char   *e = b+bn*es, *ap = a, *bp = b, *wp = NULL;
 	register char	*kb = keybuf, *kp = kb, *ke = kb + KEYBUFSIZE;	// kp = key position
 	register WORD	t;
 	register size_t gap;
 
 	for (;;) {
 		if (ap < b) {
+/*
+			wp = skip_search(ap, b, es, is_lt, bp);
+			if ((ap = wp) == b)
+				continue;
+*/
 			if (!is_lt(bp, ap)) {
 				ap += es;
 				continue;
@@ -169,15 +201,18 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		// is less when using a binary search, as opposed to linear search
 		do {
 			register char *ep = ap + gap;
-			if (msb64((ep-wp)/es)+3 < (ep-wp)/gap) {
+//			if (msb64((ep-wp)/es)+3 < (ep-wp)/gap) {
+			if ((ep-wp)/gap > 2) {
 				register char *ki;
 
-				ki = binary_search(wp, (ep-wp)/es, es, is_lt, kb);
+//				ki = binary_search(wp, (ep-wp)/es, es, is_lt, kb);
+				ki = skip_search(wp, ep, es, is_lt, kb);
 				for (; kb < kp && wp < ep; a += es)
 					if (wp == ki) {
 						copy(a, kb);
 						kb+=es;
-						ki = binary_search(wp, (ep-wp)/es, es, is_lt, kb);
+						//ki = binary_search(wp, (ep-wp)/es, es, is_lt, kb);
+						ki = skip_search(wp, ep, es, is_lt, kb);
 					} else {
 						copy(a, wp);
 						wp+=es;
@@ -205,6 +240,7 @@ roller_merge(register char *a, register size_t an, size_t bn, register size_t es
 		b = bp;
 		ap = a;
 		kp = kb;
+		wp = NULL;
 //printf("Pointing A at %u, B at %u\n", *(uint32_t *)a, *(uint32_t *)b);
 	}
 } // roller_merge
@@ -232,9 +268,8 @@ roller_sort(register char *a, size_t n, register const size_t es, register const
 		char temp[es];
 
 		for (register char *b = a, *be = a + step; b < se; b = be, be+=step) {
-			if (be > se) {
+			if (be > se)
 				be = se;
-			}
 			for (register char *s, *p=b+es; p < be; p+=es) {
 				if (!is_lt(p, p-es))
 					continue;
@@ -252,9 +287,8 @@ roller_sort(register char *a, size_t n, register const size_t es, register const
 	} while (0);
 
 	// Check if we're done
-	if (is_sorted(a, se, es, step, is_lt)) {
+	if (is_sorted(a, se, es, step, is_lt))
 		return;
-	}
 
 	for (;;) {
 		register char *b1p, *b1e;	// bucket 1 position, bucket 1 end
