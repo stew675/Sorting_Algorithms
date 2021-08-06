@@ -16,6 +16,7 @@ SRC=	heap_sort.c \
 	nqsort.c \
 	qrsort.c \
 	rattle_sort.c \
+	merge_buffer.c \
 	merge_sort.c \
 	roller_sort.c \
 	mip_sort.c \

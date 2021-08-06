@@ -32,21 +32,21 @@ extern void print_array(char *a, size_t n);
 static uint64_t
 msb64(uint64_t v)
 {
-        static const uint64_t dbm64 = (uint64_t)0x03f79d71b4cb0a89;
-        static const uint8_t dbi64[64] = {
-                 0, 47,  1, 56, 48, 27,  2, 60, 57, 49, 41, 37, 28, 16,  3, 61,
-                54, 58, 35, 52, 50, 42, 21, 44, 38, 32, 29, 23, 17, 11,  4, 62,
-                46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43, 31, 22, 10, 45,
-                25, 39, 14, 33, 19, 30,  9, 24, 13, 18,  8, 12,  7,  6,  5, 63
-        };
+	static const uint64_t dbm64 = (uint64_t)0x03f79d71b4cb0a89;
+	static const uint8_t dbi64[64] = {
+		 0, 47,  1, 56, 48, 27,  2, 60, 57, 49, 41, 37, 28, 16,  3, 61,
+		54, 58, 35, 52, 50, 42, 21, 44, 38, 32, 29, 23, 17, 11,  4, 62,
+		46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43, 31, 22, 10, 45,
+		25, 39, 14, 33, 19, 30,  9, 24, 13, 18,  8, 12,  7,  6,  5, 63
+	};
 
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        v |= v >> 32;
-        return dbi64[(v * dbm64) >> 58];
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v |= v >> 32;
+	return dbi64[(v * dbm64) >> 58];
 } // msb64
 
 static inline bool
@@ -63,20 +63,26 @@ static inline char *
 binary_search(register char *a, register size_t n, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
 {
 	register size_t lo = 0, hi = n, mid = hi / 2;
-	register char *s=a+mid*es;
+	register char *s;
 
-	while (lo < hi) {
+	for (s=a+mid*es; lo<hi; mid=(lo+hi)/2, s=a+mid*es)
 		if (is_lt(key, s))
 			hi = mid;
 		else
 			lo = mid + 1;
-		mid = (lo + hi) / 2;
-		s=a+mid*es;
-	}
 	return s;
 } // binary_search
 
 
+// Skip search is designed to work better when we would expect the next match to be
+// somewhat close to the start. We use high resolution there but then start skipping
+// ahead in ever increasing amounts until we over-shoot, and then do a pseudo binary
+// search within that range.  It's generally as efficient as linear searching when
+// expected values are close to the start of a range, as it doesn't incur the fixed
+// comparison overhead that binary searching does, but it's slower than binary
+// searching for values that are towards the end of the range, but in this instance
+// still WAY faster than linear searching, so it tries to act as a compromise
+// between the two for certain circumstances.
 static inline char *
 skip_search(register char *a, register char *e, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
 {
@@ -111,16 +117,16 @@ skip_search(register char *a, register char *e, register size_t es, register con
 static void
 roller_merge(register char *a, register size_t an, size_t bn, register size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
 {
-        register char   *b = a+an*es;
+	register char   *b = a+an*es;
 
-        // If the first element of B is not less then the last element
-        // of A, then since A and B are in order, it naturally follows
-        // that [A, B] must also all be in order and we're done here
-        if (!is_lt(b, b-es))
-                return;
+	// If the first element of B is not less then the last element
+	// of A, then since A and B are in order, it naturally follows
+	// that [A, B] must also all be in order and we're done here
+	if (!is_lt(b, b-es))
+		return;
 
 	char		keybuf[KEYBUFSIZE];
-        register char   *e = b+bn*es, *ap = a, *bp = b, *wp = NULL;
+	register char   *e = b+bn*es, *ap = a, *bp = b, *wp = NULL;
 	register char	*kb = keybuf, *kp = kb, *ke = kb + KEYBUFSIZE;	// kp = key position
 	register WORD	t;
 	register size_t gap;
@@ -266,20 +272,27 @@ roller_sort(register char *a, size_t n, register const size_t es, register const
 	// First pass over a, doing insertion sorts every STEP intervals
 	do {
 		char temp[es];
+		register size_t gap;
 
 		for (register char *b = a, *be = a + step; b < se; b = be, be+=step) {
 			if (be > se)
 				be = se;
-			for (register char *s, *p=b+es; p < be; p+=es) {
+			gap = 0;
+			for (register char *s, *p=b+es; p < be; p+=es, gap++) {
 				if (!is_lt(p, p-es))
 					continue;
 
-				s = p - es;
 				copy(temp, p);
-				copy(p, s);
-				while ((s > b) && is_lt(temp, s-es)) {
-					copy(s, s-es);
-					s -= es;
+				if (gap > 15) {
+					s = binary_search(b, gap, es, is_lt, temp);
+					memmove(s+es, s, p-s);
+				} else {
+					s = p - es;
+					copy(p, s);
+					while ((s > b) && is_lt(temp, s-es)) {
+						copy(s, s-es);
+						s -= es;
+					}
 				}
 				copy(s, temp);
 			}

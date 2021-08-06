@@ -5,6 +5,7 @@
 // Implements a stable in-place merge sort
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include "swap.h"
 
@@ -50,8 +51,9 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	// If the first element of B is not less then the last element
 	// of A, then since A and B are in order, it naturally follows
 	// that [A, B] must also all be in order and we're done here
-	if (!is_less_than(b, b-es))
+	if (!is_less_than(b, b-es)) {
 		return;
+	}
 
 	register char 	*e = b+bn*es;
 
@@ -103,11 +105,13 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	// Now recursively merge the two sub-array pairings.  We know that
 	// (pb-b) > 0 but we need to check that either array didn't wholly
 	// swap out the other and cause the remaining portion to be zero
-	if (pa>a)
-		merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
-
-	if (e>pb)
-		merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
+	if (an < bn) {
+		if (pa>a) merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
+		if (e>pb) merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
+	} else {
+		if (e>pb) merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
+		if (pa>a) merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
+	}
 } // merge_inplace
 
 

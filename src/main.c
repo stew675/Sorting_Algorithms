@@ -33,6 +33,7 @@ extern void insertion_sort2(void *a, size_t n, size_t es, int (*cmp)());
 extern void intro_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void heap_merge(void *a, size_t n, size_t es, int (*cmp)());
+extern void merge_buffer(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
@@ -130,11 +131,13 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-im\tInsertion Merge Sort\n");
 	fprintf(stderr, "\t-in\tIntro Sort\n");
 	fprintf(stderr, "\t-is\tInsertion Sort\n");
+	fprintf(stderr, "\t-mb\tMerge Buffer Sort\n");
 	fprintf(stderr, "\t-me\tMerge Sort\n");
 	fprintf(stderr, "\t-mi\tMerge Inplace Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
+	fprintf(stderr, "\t-ro\tRoller Sort\n");
 	fprintf(stderr, "\t-sh\tShell Sort\n");
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
 	fprintf(stderr, "\t-ss\tSelection Sort\n");
@@ -221,6 +224,11 @@ void
 	if (strcmp(opt, "-in") == 0) {
 		*sortname = "Intro Sort";
 		return intro_sort;
+	}
+
+	if (strcmp(opt, "-mb") == 0) {
+		*sortname = "Buffer Merge Sort";
+		return merge_buffer;
 	}
 
 	if(strcmp(opt, "-me") == 0) {
