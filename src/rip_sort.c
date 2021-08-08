@@ -21,10 +21,10 @@
 // following line if you want to play around with that code path
 //#define MERGE_AT_TOP
 
-#define KEYBUFSIZE	32768
+#define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	16384
 //#define KEYBUFSIZE	4096
-#define STEP 20
+#define STEP 50
 
 extern void print_array(char *a, size_t n);
 
@@ -32,21 +32,21 @@ extern void print_array(char *a, size_t n);
 static uint64_t
 msb64(uint64_t v)
 {
-        static const uint64_t dbm64 = (uint64_t)0x03f79d71b4cb0a89;
-        static const uint8_t dbi64[64] = {
-                 0, 47,  1, 56, 48, 27,  2, 60, 57, 49, 41, 37, 28, 16,  3, 61,
-                54, 58, 35, 52, 50, 42, 21, 44, 38, 32, 29, 23, 17, 11,  4, 62,
-                46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43, 31, 22, 10, 45,
-                25, 39, 14, 33, 19, 30,  9, 24, 13, 18,  8, 12,  7,  6,  5, 63
-        };
+	static const uint64_t dbm64 = (uint64_t)0x03f79d71b4cb0a89;
+	static const uint8_t dbi64[64] = {
+		 0, 47,  1, 56, 48, 27,  2, 60, 57, 49, 41, 37, 28, 16,  3, 61,
+		54, 58, 35, 52, 50, 42, 21, 44, 38, 32, 29, 23, 17, 11,  4, 62,
+		46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43, 31, 22, 10, 45,
+		25, 39, 14, 33, 19, 30,  9, 24, 13, 18,  8, 12,  7,  6,  5, 63
+	};
 
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        v |= v >> 32;
-        return dbi64[(v * dbm64) >> 58];
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v |= v >> 32;
+	return dbi64[(v * dbm64) >> 58];
 } // msb64
 
 static inline bool
@@ -63,20 +63,26 @@ static inline char *
 binary_search(register char *a, register size_t n, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
 {
 	register size_t lo = 0, hi = n, mid = hi / 2;
-	register char *s=a+mid*es;
+	register char *s;
 
-	while (lo < hi) {
+	for (s=a+mid*es; lo<hi; mid=(lo+hi)/2, s=a+mid*es)
 		if (is_lt(key, s))
 			hi = mid;
 		else
 			lo = mid + 1;
-		mid = (lo + hi) / 2;
-		s=a+mid*es;
-	}
 	return s;
 } // binary_search
 
 
+// Skip search is designed to work better when we would expect the next match to be
+// somewhat close to the start. We use high resolution there but then start skipping
+// ahead in ever increasing amounts until we over-shoot, and then do a pseudo binary
+// search within that range.  It's generally as efficient as linear searching when
+// expected values are close to the start of a range, as it doesn't incur the fixed
+// comparison overhead that binary searching does, but it's slower than binary
+// searching for values that are towards the end of the range, but in this instance
+// still WAY faster than linear searching, so it tries to act as a compromise
+// between the two for certain circumstances.
 static inline char *
 skip_search(register char *a, register char *e, register size_t es, register const int (*is_lt)(const void *, const void *), register char *key)
 {
@@ -104,119 +110,74 @@ skip_search(register char *a, register char *e, register size_t es, register con
 } // skip_search
 
 
-static void
-swap_arrays(register char *a, register size_t an, size_t bn, register size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
-{
-} // swap_arrays
-
-
 // Both sorted sub-arrays must be adjacent in 'a'
 // Assumes that both 'an' and 'bn' are always non-zero upon entry
 // 'an' is the length of the first sorted section in 'a', referred to as A
 // 'bn' is the length of the second sorted section in 'a', referred to as B
 static void
-buffer_merge(register char *a, register size_t an, size_t bn, register size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
+roller_merge(register char *a, register size_t an, size_t bn, register size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
 {
-        register char   *b = a+an*es;
+	register char   *b = a+an*es;
 
-        // If the first element of B is not less then the last element
-        // of A, then since A and B are in order, it naturally follows
-        // that [A, B] must also all be in order and we're done here
-        if (!is_lt(b, b-es))
-                return;
+	// If the first element of B is not less then the last element
+	// of A, then since A and B are in order, it naturally follows
+	// that [A, B] must also all be in order and we're done here
+	if (!is_lt(b, b-es))
+		return;
+
+printf("START RIP MERGE\n");
+print_array(a, an+bn);
 
 	char		keybuf[KEYBUFSIZE];
-        register char   *ae = b, *be = b+bn*es, *ap = a, *bp = b;
-	size_t		fullkeygap = KEYBUFSIZE - (KEYBUFSIZE % es);
-	register char	*kb = keybuf, *kp = kb, *ke = kb + fullkeygap, *ks=kb;	// kp = key position
+	register char   *e = b+bn*es, *ap = a, *bp = b, *wp = NULL;
+	register char	*kb = keybuf, *kp = kb, *ke = kb + KEYBUFSIZE;	// kp = key position
+	register WORD	t;
+	register size_t gap;
 
-	while (a < be) {
-		do {
-			if (bp < be && is_lt(bp, ap)) {
-				copy(kp, bp);
-				bp+=es;
-			} else {
-				copy(kp, ap);
-				ap+=es;
+	char temp[es];
+
+	for (;;) {
+		if (ap < b) {
+/*
+			wp = skip_search(ap, b, es, is_lt, bp);
+			if ((ap = wp) == b)
+				continue;
+*/
+			if (!is_lt(bp, ap)) {
+				ap += es;
+				continue;
 			}
 
-			kp +=es;
-			if (kp+es > ke)
-				kp = kb;
-		} while (kp != ks && ap < ae);
-
-		if (kp == ks) {
-			register size_t amt, gap;
-
-			// ring buffer is full
-			gap = bp - ae;
-			memmove(ap + gap, ap, ae-ap);
-			ap += gap;
-			ae += gap;
-
-			amt = ke - ks;
-			memcpy(a, ks, amt);
-			a+=amt;
-			ks=kb;
-
-			amt=kp-kb;
-			if (amt > 0) {
-				memcpy(a, kb, amt);
-				a+=amt;
-				kp = kb;
+			if (bp+es == e || !is_lt(bp+es, ap)) {
+				swap(bp, ap);
+				ap += es;
+				continue;
 			}
+
+			// ap > bp+es, so we must copy ap to the keybuf
+			// and then copy bp to where ap was
+			// copy3 copies from ap to kp, and then from bp to ap
+			copy3(temp, ap, bp);
+			kp = bp+es;
+			wp = skip_search(kp, e, es, is_lt, temp);
+			wp -= es;
+			memmove(kp-es, kp, (wp-kp)+es);
+			copy(wp, temp);
+			ap+=es;
+print_array(bp, bn);
+
 			continue;
 		}
 
-		if (a < bp) {
-			register size_t togo, amt;
-		
-			if (ap==ae)
-				ae = bp;
-			togo = ae - a;
-
-			if (kp > ks)
-				amt = kp - ks;
-			else
-				amt = ke - ks;
-//print_array(ks, amt/es);
-			if (amt > togo) {
-printf("Got here 1\n");
-				memcpy(a, ks, togo);
-				a += togo;
-				ks += togo;
-			} else {
-				memcpy(a, ks, amt);
-				ks += amt;
-				a += amt;
-				togo -= amt;
-
-				if (ks == kp) {
-					ks = kb;
-					kp = kb;
-				} else if ((amt = kp-kb) > 0) {
-printf("Got here 4\n");
-					if (amt > togo) {
-						memcpy(a, kb, togo);
-						a += togo;
-						ks += togo;
-					} else {
-						memcpy(a, kb, amt);
-						a += amt;
-						ks = kb;
-						kp = kb;
-					}
-				}
-			}
-			continue;
-		}
-		break;
+		if (ap == bp)
+			break;
 	}
-} // buffer_merge
+print_array(a, an+bn);
+} // roller_merge
 
 
 void
-merge_buffer(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
+rip_sort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
 {
 	register char	*se = a + (n * es);	// se means Source End
 	register size_t	step;
@@ -235,20 +196,27 @@ merge_buffer(register char *a, size_t n, register const size_t es, register cons
 	// First pass over a, doing insertion sorts every STEP intervals
 	do {
 		char temp[es];
+		register size_t gap;
 
 		for (register char *b = a, *be = a + step; b < se; b = be, be+=step) {
 			if (be > se)
 				be = se;
-			for (register char *s, *p=b+es; p < be; p+=es) {
+			gap = 0;
+			for (register char *s, *p=b+es; p < be; p+=es, gap++) {
 				if (!is_lt(p, p-es))
 					continue;
 
-				s = p - es;
 				copy(temp, p);
-				copy(p, s);
-				while ((s > b) && is_lt(temp, s-es)) {
-					copy(s, s-es);
-					s -= es;
+				if (gap > 15) {
+					s = binary_search(b, gap, es, is_lt, temp);
+					memmove(s+es, s, p-s);
+				} else {
+					s = p - es;
+					copy(p, s);
+					while ((s > b) && is_lt(temp, s-es)) {
+						copy(s, s-es);
+						s -= es;
+					}
 				}
 				copy(s, temp);
 			}
@@ -269,7 +237,7 @@ merge_buffer(register char *a, size_t n, register const size_t es, register cons
 			if (b2e > se)
 				b2e = se;
 
-			buffer_merge(b1p, step / es, (b2e - b2p) / es, es, is_lt, swaptype);
+			roller_merge(b1p, step / es, (b2e - b2p) / es, es, is_lt, swaptype);
 		}
 
 		// Double our bucket step size before checking if we're done
@@ -279,4 +247,4 @@ merge_buffer(register char *a, size_t n, register const size_t es, register cons
 		if (is_sorted(a, se, es, step, is_lt))
 			break;
 	}
-} // merge_buffer
+} // rip_sort

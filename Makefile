@@ -7,6 +7,7 @@ DEP=	swap.h oldswap.h newswap.h
 SRC=	heap_sort.c \
 	bidir_bubble.c \
 	bishubble.c \
+	bitonic_sort.c \
 	bubble_sort.c \
 	comb_sort.c \
 	main.c \
@@ -18,14 +19,18 @@ SRC=	heap_sort.c \
 	rattle_sort.c \
 	merge_buffer.c \
 	merge_sort.c \
+	odd_even_sort.c \
 	roller_sort.c \
 	mip_sort.c \
+	rip_sort.c \
+	r2_sort.c \
 	ternary_heap.c \
 	insertion_merge.c \
 	insertion_sort.c \
 	insertion_sort2.c \
 	intro_sort.c \
 	selection_sort.c \
+	sqsort.c \
 	heap_merge.c \
 	smooth_sort.c \
 	grail_sort.c \
@@ -51,7 +56,7 @@ BIN=ts
 
 CC= gcc
 OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
-DEBUG_FLAGS=-g
+DEBUG_FLAGS=
 LIBS=
 
 ######################################################################################

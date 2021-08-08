@@ -41,9 +41,9 @@ copyfunc3(char *a, char *b, char *c, size_t n, int swaptype)
 	if (swaptype) {					\
 		copyfunc3(a, b, c, es, swaptype);	\
 	} else {					\
-		numcopies++;				\
 		*(WORD*)(a) = *(WORD*)(b);		\
 		*(WORD*)(b) = *(WORD*)(c);		\
+		numcopies++;				\
 	}
 
 // Copies from b to a
@@ -66,8 +66,8 @@ copyfunc(char *a, char *b, size_t n, int swaptype)
 	if (swaptype) {					\
 		copyfunc(a, b, es, swaptype);		\
 	} else {					\
-		numcopies++;				\
 		*(WORD*)(a) = *(WORD*)(b);		\
+		numcopies++;				\
 	}
 
 

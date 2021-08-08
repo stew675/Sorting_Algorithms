@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
+#include <x86intrin.h>
 
 #define DATA_SET_REVERSED	0x04
 #define DATA_SET_UNIQUE		0x08
@@ -23,6 +24,7 @@ extern void ahm_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void aim_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bidir_bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void bitonic_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void four_sort(void *a, size_t n, size_t es, int (*cmp)());
@@ -36,13 +38,17 @@ extern void heap_merge(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_buffer(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void odd_even_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
+extern void r2_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void rattle_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void rip_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void roller_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void selection_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void sqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void ternary_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
@@ -101,6 +107,16 @@ test_sort(register uint32_t a[], register size_t n)
 } // test_sort
 
 
+static inline uint64_t
+get_cycles()
+{
+	_mm_lfence();
+	return __rdtsc();
+//	unsigned int lo,hi;
+//	__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+//	return ((uint64_t)hi << 32) | lo;
+}
+
 static void
 usage(char *prog, char *msg)
 {
@@ -121,6 +137,7 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-ah\tAdaptive Heap-Merge Sort\n");
 	fprintf(stderr, "\t-am\tAdaptive Insertion-Merge Sort\n");
 	fprintf(stderr, "\t-bb\tBidirectional Bubble Sort\n");
+	fprintf(stderr, "\t-bi\tBitonic Sort\n");
 	fprintf(stderr, "\t-bs\tBidirectional Bubble Shell Sort\n");
 	fprintf(stderr, "\t-bu\tBubble Sort\n");
 	fprintf(stderr, "\t-co\tComb Sort\n");
@@ -135,11 +152,14 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-me\tMerge Sort\n");
 	fprintf(stderr, "\t-mi\tMerge Inplace Sort\n");
 	fprintf(stderr, "\t-nq\tNew Quick Sort\n");
+	fprintf(stderr, "\t-oe\tOdd Even Sort\n");
 	fprintf(stderr, "\t-qr\tQuick Radix Sort\n");
+	fprintf(stderr, "\t-r2\tRattle2 Sort\n");
 	fprintf(stderr, "\t-ra\tRattle Sort\n");
 	fprintf(stderr, "\t-ro\tRoller Sort\n");
 	fprintf(stderr, "\t-sh\tShell Sort\n");
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
+	fprintf(stderr, "\t-sq\tStew's QSort\n");
 	fprintf(stderr, "\t-ss\tSelection Sort\n");
 	fprintf(stderr, "\t-th\tTernary Heap Sort\n");
 	fprintf(stderr, "\t-wh\tWeak Heap Sort\n");
@@ -164,6 +184,11 @@ void
 	if (strcmp(opt, "-bb") == 0) {
 		*sortname = "Bidirectional Bubble Sort";
 		return bidir_bubble_sort;
+	}
+
+	if (strcmp(opt, "-bi") == 0) {
+		*sortname = "Bitonic Sort";
+		return bitonic_sort;
 	}
 
 	if (strcmp(opt, "-bs") == 0) {
@@ -246,14 +271,29 @@ void
 		return nqsort;
 	}
 
+	if(strcmp(opt, "-oe") == 0) {
+		*sortname = "Odd Even Sort";
+		return odd_even_sort;
+	}
+
 	if(strcmp(opt, "-qr") == 0) {
 		*sortname = "Quick Radix Sort";
 		return qrsort;
 	}
 
+	if(strcmp(opt, "-r2") == 0) {
+		*sortname = "Rattle2 Sort";
+		return r2_sort;
+	}
+
 	if(strcmp(opt, "-ra") == 0) {
 		*sortname = "Rattle Sort";
 		return rattle_sort;
+	}
+
+	if(strcmp(opt, "-ri") == 0) {
+		*sortname = "Rip Sort";
+		return rip_sort;
 	}
 
 	if(strcmp(opt, "-ro") == 0) {
@@ -269,6 +309,11 @@ void
 	if(strcmp(opt, "-sm") == 0) {
 		*sortname = "Smooth Sort";
 		return smooth_sort;
+	}
+
+	if(strcmp(opt, "-sq") == 0) {
+		*sortname = "Stew's QSort";
+		return sqsort;
 	}
 
 	if(strcmp(opt, "-ss") == 0) {
@@ -596,8 +641,10 @@ main(int argc, char *argv[])
 
 	// Let's finally do this thing!
 	struct timespec start, end;
+	uint64_t startc = 0, endc = 0;
 	printf("\nStarting %s\n", sortname);
 	clock_gettime(CLOCK_MONOTONIC, &start);
+	startc = get_cycles();
 	if (sort != qrsort) {
 		if (sort == GrailSort) {
 			sort(a, n);
@@ -609,6 +656,7 @@ main(int argc, char *argv[])
 	} else {
 		sort(a, n, sizeof(*a), get_uint32_key);
 	}
+	endc = get_cycles();
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	if (verbose) {
@@ -621,11 +669,12 @@ main(int argc, char *argv[])
 	// Stats time!
 	double tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
 	printf("\n");
-	printf("Time taken to sort: %.9fs\n", tim);
-	printf("Number Key Lookups: %lu\n", numkeys);
-	printf("Number of Compares: %lu\n", numcmps);
-	printf("Number of Swaps   : %lu\n", numswaps);
-	printf("Number of Copies  : %lu\n", numcopies);
+	printf("Time taken to sort  : %.9fs\n", tim);
+	printf("Number Key Lookups  : %lu\n", numkeys);
+	printf("Number of Compares  : %lu\n", numcmps);
+	printf("Number of Swaps     : %lu\n", numswaps);
+	printf("Number of Copies    : %lu\n", numcopies);
+	printf("Number of CPU Cycles: %lu\n", (endc - startc));
 	printf(" ");
 	printf(" ");
 	printf(" ");
