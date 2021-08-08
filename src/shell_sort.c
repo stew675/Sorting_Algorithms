@@ -18,7 +18,6 @@ static size_t gaps[] = {46498303, 17436869, 6538817, 2452057, 919519, 344821, 12
 //static size_t steps[] = {1, 3, 11, 37, 127, 409, 1373, 4567, 15241, 50821, 169343, UINT32_MAX}; // (10/3)^n -> closest prime
 //static size_t steps[] = {1, 3, 13, 47, 181, 661, 2437, 8923, 32687, 119797, UINT32_MAX}; // (11/3)^n -> closest prime
 static size_t steps[] = {1, 5, 17, 67, 257, 1021, 4099, 16381, 65537, 262147, UINT32_MAX}; // 4^n -> closest prime
-//static size_t steps[] = {1, 5, 29, 151, 809, 4327, 23017, 122741, UINT32_MAX}; // (16/3)^n -> closest prime
 
 // Sort an array a[0...n-1].
 void
