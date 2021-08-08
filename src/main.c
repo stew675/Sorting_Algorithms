@@ -10,6 +10,7 @@
 #define DATA_SET_REVERSED	0x04
 #define DATA_SET_UNIQUE		0x08
 
+uint64_t numcmps = 0, numswaps = 0, numcopies = 0;
 static int disorder_factor = 100;
 static int data_set_ops = 0;
 static uint32_t data_set_limit = UINT32_MAX;
@@ -17,7 +18,6 @@ static unsigned int random_seed = 1;
 static bool verbose = false;
 
 static uint64_t numkeys = 0;
-uint64_t numcmps = 0, numswaps = 0, numcopies = 0;
 
 // Declarations of all the sort functions we support
 extern void ahm_sort(void *a, size_t n, size_t es, int (*cmp)());

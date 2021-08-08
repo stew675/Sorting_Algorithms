@@ -1,3 +1,7 @@
+//			Stew's optimised quick sort implementation
+//
+// Author: Stew Forster (stew675@gmail.com)			Date: 9th Aug 2021
+//
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,9 +13,11 @@
 			(is_lt(c, b) ? b : is_lt(c, a) ? c : a)) 
 
 static inline char *
-partition(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
+partition(register char *a, size_t n, register const size_t es,
+          register const int (*is_lt)(const void *, const void *), register int swaptype)
 {
-	register char	*e=a+(n-1)*es, *p=a+(n/2)*es;  // e should point AT the last element in the array a
+	// e should point AT the last element in the array a
+	register char	*e=a+(n-1)*es, *p=a+(n/2)*es;
 	register WORD	t;
 
 	// Select a pivot point using median of 3
@@ -34,12 +40,11 @@ partition(register char *a, size_t n, register const size_t es, register const i
 	// Now partition the array around the pivot point's value
 	// Remember: e contains the pivot value
 	for (p = e-es; is_lt(e, p); p-=es);
-	for (; a<p; a+=es) {
+	for (; a<p; a+=es)
 		if (is_lt(e, a)) {
 			swap(a, p);
-			for (p-=es; is_lt(e, p); p-=es);
+			for (p-=es; p>a && is_lt(e, p); p-=es);
 		}
-	}
 	p+=es;
 
 	// Move the pivot point into position
@@ -52,22 +57,22 @@ partition(register char *a, size_t n, register const size_t es, register const i
 
 
 static void
-_sqsort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *), register int swaptype)
+_sqsort(register char *a, size_t n, register const size_t es,
+        register const int (*is_lt)(const void *, const void *), register int swaptype)
 {
-	register char	*p;
-
 	for (;;) {
 		register char	*e = a + n * es;
 
 		// Insertion Sort
 		if (n < 19) {
-			register char	*s, *v;
+			register char	*p, *s, *v;
 			register WORD	t;
 			char tmp[es];
 
 			for (s=a, p = a+es; p < e; s=p, p+=es)
 				if (is_lt(p, s)) {
-					copy3(tmp, p, s);
+					copy(tmp, p);
+					copy(p, s);
 					for (v = s, s-=es; v > a && is_lt(tmp, s); v = s, s-=es)
 						copy(v, s);
 					copy(v, tmp);
@@ -76,7 +81,7 @@ _sqsort(register char *a, size_t n, register const size_t es, register const int
 		}
 
 		// Quick Sort
-		p = partition(a, n, es, is_lt, swaptype);
+		register char *p = partition(a, n, es, is_lt, swaptype);
 
 		// We only recurse on the smaller of the 2 partitions, and just restart the
 		// loop on the larger of the two.  This keeps recursion depth very minimal
@@ -90,7 +95,7 @@ _sqsort(register char *a, size_t n, register const size_t es, register const int
 
 			// Rather than recurse here, just restart the loop.  This is the same
 			// same as doing the following, just without the actual function call
-			//   _intro_sort(p+es, n - (((p+es)-a)/es), es, is_lt, swaptype);
+			//   _sqsort(p+es, n - (((p+es)-a)/es), es, is_lt, swaptype);
 			p += es;
 			n -= (p-a)/es;
 			a = p;
@@ -102,7 +107,8 @@ _sqsort(register char *a, size_t n, register const size_t es, register const int
 
 // My Implementation of qsort
 void
-sqsort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
+sqsort(register char *a, size_t n, register const size_t es,
+       register const int (*is_lt)(const void *, const void *))
 {
 	int swaptype;
 
@@ -111,6 +117,6 @@ sqsort(register char *a, size_t n, register const size_t es, register const int 
 
 	SWAPINIT(a, es);
 
-	// Perform a recursive intro_sort
+	// Perform a recursive sqsort
 	_sqsort(a, n, es, is_lt, swaptype);
 } // sqsort

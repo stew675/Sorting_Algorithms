@@ -95,8 +95,8 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 	if (swaptype) {					\
 		swapfunc(a, b, es, swaptype);		\
 	} else {					\
-		numswaps++;				\
 		(void)exch(*(WORD*)(a), *(WORD*)(b), t);\
+		numswaps++;				\
 	}
 
 #define vecswap(a, b, n)			\
