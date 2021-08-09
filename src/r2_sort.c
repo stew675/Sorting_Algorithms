@@ -99,6 +99,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include "swap.h"
 
@@ -198,7 +199,8 @@ r2_sort(register char *a, size_t n, register const size_t es, register const int
 
 	SWAPINIT(a, es);
 
-#define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
+//#define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
+#define next_step       ((step*10)/13)
 	for (;;) {
 		for (step=next_step, b=a, c=b+step*es; c<e; b+=es, c+=es)
 			if (is_lt(c, b))
@@ -211,6 +213,11 @@ r2_sort(register char *a, size_t n, register const size_t es, register const int
 		if (step < 3) break;
 	}
 #undef next_step
+
+//	for (register bool swapped = true; swapped; )
+//		for (b=a, c=a+es, swapped=false; c<e; b+=es, c+=es)
+//			if (is_lt(c, b) && (swapped = true))
+//				swap(b, c);
 
 	// At this point everything should be <10 positions of where it needs to be,
 	// and most typically within 1-2 positions.  It so happens that insertion sort

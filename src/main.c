@@ -677,8 +677,6 @@ main(int argc, char *argv[])
 	printf("Number of CPU Cycles: %lu\n", (endc - startc));
 	printf(" ");
 	printf(" ");
-	printf(" ");
-	printf(" ");
 	printf("\n");
 
 	free(a);

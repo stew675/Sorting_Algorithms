@@ -108,9 +108,9 @@ static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 10
 			       2357, 3137, 4201, 5591, 7459, 9949, 13267, 17707, 23599, 31469, 41953, 55933, 74573, 99439, 4294967295};
 
 void
-rattle_sort(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
+rattle_sort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
 {
-	register char	*b, *c, *e = a + n * es, *s;
+	register char	*b, *c, *s, *e = a + n * es;
 	register int	swaptype;
 	register WORD	t;
 	size_t		step = n;
@@ -119,16 +119,22 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 	SWAPINIT(a, es);
 
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
-	for (;;) {
-		for (step = next_step, b=a, c=a+(step*es), s = a; c<e; b+=es, c+=es)
-			if (is_less_than(c, b)) { swap(b, c); a = c; }
-		if (step == 1) { if (s == a) { return; } else { e = a; } }
-		a = s;
-
-		for (step = next_step, b=e-es, c=b-(step*es), s = e; c>=a; b-=es, c-=es)
-			if (is_less_than(b, c)) { swap(b, c); e = c; }
-		if (step == 1) { if (s == e) { return; } else { a = e; } }
-		e = s;
+	while (step > 2) {
+		for (step = next_step, b=a, c=a+(step*es); c<e; b+=es, c+=es)
+			if (is_lt(c, b))
+				swap(b, c);
+		if (!(step>2))
+			break;
+		for (step = next_step, b=e-es, c=b-(step*es); c>=a; b-=es, c-=es)
+			if (is_lt(b, c))
+				swap(b, c);
 	}
 #undef next_step
+
+	// At this point everything should be <10 positions of where it needs to be,
+	// and most typically within 0-2 positions.  It so happens that insertion sort
+	// is actually very efficient for sorting such really quickly, so we do that
+	for (s=a, b=a+es; b<e; s=b, b+=es)
+		for (c=b; c>a && is_lt(c, s); c=s, s-=es)
+			swap(c, s);
 } // rattle_sort
