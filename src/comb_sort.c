@@ -18,7 +18,7 @@ comb_sort(char *a, register size_t n, register const size_t es, register const i
 
 	SWAPINIT(a, es);
 
-	for (n=(n*10)/13; n>1 && (swapped || n>1); n=(n>1)?((n*10)/13):1)
+	for (n=(n*10)/13; n>1; n=(n>1)?((n*10)/13):1)
 		for (b=a, c=b+(n*es), swapped=false; c<e; b+=es, c+=es)
 			if (is_lt(c, b) && (swapped = true))
 				swap(b, c);
