@@ -93,7 +93,7 @@ typedef const int (*ilt)(const void *, const void *);
 
 
 static bool
-four_sort_forwards(register char *a, size_t n, register const size_t es, register ilt is_less_than, register int swaptype, register size_t step)
+four_sort_forwards(register char *a, size_t n, register const size_t es, register ilt is_lt, register int swaptype, register size_t step)
 {
         register char *e = a+(n-1)*es;
 
@@ -118,7 +118,7 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 		for (;;) {
 			a2 = a1 + step;
 
-			sort2(a1, a2, is_less_than, swapped);
+			sort2(a1, a2, is_lt, swapped);
 
 			if ((e - a2) < step)
 				break;
@@ -126,15 +126,15 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 			a3 = a2 + step;
 
 			if ((e - a3) < step) {
-				sortpp1(a1, a2, a3, is_less_than, swapped);
+				sortpp1(a1, a2, a3, is_lt, swapped);
 				break;
 			}
 
 			a4 = a3 + step;
 
-			sort2(a3, a4, is_less_than, swapped);
+			sort2(a3, a4, is_lt, swapped);
 
-			sort2pairs(a1, a2, a3, a4, is_less_than, swapped);
+			sort2pairs(a1, a2, a3, a4, is_lt, swapped);
 
 			a1 = a4;
 
@@ -147,7 +147,7 @@ four_sort_forwards(register char *a, size_t n, register const size_t es, registe
 
 
 static bool
-four_sort_backwards(register char *a, size_t n, register const size_t es, register ilt is_less_than, register int swaptype, register size_t step)
+four_sort_backwards(register char *a, size_t n, register const size_t es, register ilt is_lt, register int swaptype, register size_t step)
 {
         register char *e = a+(n-1)*es;
 
@@ -172,7 +172,7 @@ four_sort_backwards(register char *a, size_t n, register const size_t es, regist
 		for (;;) {
 			a2 = a1 - step;
 
-			sort2(a2, a1, is_less_than, swapped);
+			sort2(a2, a1, is_lt, swapped);
 
 			if ((a2-a) < step)
 				break;
@@ -180,15 +180,15 @@ four_sort_backwards(register char *a, size_t n, register const size_t es, regist
 			a3 = a2 - step;
 
 			if ((a3 - a) < step) {
-				sort1pp(a3, a2, a1, is_less_than, swapped);
+				sort1pp(a3, a2, a1, is_lt, swapped);
 				break;
 			}
 
 			a4 = a3 - step;
 
-			sort2(a4, a3, is_less_than, swapped);
+			sort2(a4, a3, is_lt, swapped);
 
-			sort2pairs(a4, a3, a2, a1, is_less_than, swapped);
+			sort2pairs(a4, a3, a2, a1, is_lt, swapped);
 
 			a1 = a4;
 
@@ -206,7 +206,7 @@ static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 10
 //static const size_t steps[] = {1, 2, 5, 7, 13, 23, 37, 59, 101, 167, 277, 461, 769, 1277, 2129, 3547, 5903, 9851, 16411, 27361, 45587, 75979, 126631, UINT32_MAX};
 
 void
-four_sort(register char *a, size_t n, register const size_t es, register ilt is_less_than)
+four_sort(register char *a, size_t n, register const size_t es, register ilt is_lt)
 {
         register char *e = a+(n-1)*es;
         int swaptype;
@@ -220,7 +220,7 @@ four_sort(register char *a, size_t n, register const size_t es, register ilt is_
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	for (;;) {
 		step = next_step;
-		swapped = four_sort_forwards(a, n, es, is_less_than, swaptype, step);
+		swapped = four_sort_forwards(a, n, es, is_lt, swaptype, step);
 		if (step == 1) {
 			onepasses++;
 		 	if (!swapped)
@@ -228,7 +228,7 @@ four_sort(register char *a, size_t n, register const size_t es, register ilt is_
 		}
 
 		step = next_step;
-		swapped = four_sort_backwards(a, n, es, is_less_than, swaptype, step);
+		swapped = four_sort_backwards(a, n, es, is_lt, swaptype, step);
 		if (step == 1) {
 			onepasses++;
 		 	if (!swapped)
@@ -239,3 +239,13 @@ four_sort(register char *a, size_t n, register const size_t es, register ilt is_
 
 	printf("Four Sort took %d onepasses\n", onepasses);
 } // four_sort
+
+
+// A1+A2 -> 1C + 0.5S
+// A3+A4 -> 1C + 0.5S
+// A2+A3 -> 1C + 0.5S
+//	If A2+A3 swapped
+//		A1+A2 -> 1C + 0.5S
+//		A3+A4 -> 1C + 0.5S
+
+// On Average: 4 compares and 3 swaps

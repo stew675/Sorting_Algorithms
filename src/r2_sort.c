@@ -101,6 +101,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include "swap.h"
 
 
@@ -197,10 +198,11 @@ r2_sort(register char *a, size_t n, register const size_t es, register const int
 	size_t		step = n;
 	int		pos = 0;
 
+	madvise(a, n*es, MADV_WILLNEED);
 	SWAPINIT(a, es);
 
-//#define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
-#define next_step       ((step*10)/13)
+#define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
+//#define next_step       ((step*10)/13)
 	for (;;) {
 		for (step=next_step, b=a, c=b+step*es; c<e; b+=es, c+=es)
 			if (is_lt(c, b))

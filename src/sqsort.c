@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include "swap.h"
 
 #define med3(a, b, c)	(is_lt(a, b) ?                            \
@@ -39,13 +40,13 @@ partition(register char *a, size_t n, register const size_t es,
 
 	// Now partition the array around the pivot point's value
 	// Remember: e contains the pivot value
-	for (p = e-es; is_lt(e, p); p-=es);
-	for (; a<p; a+=es)
-		if (is_lt(e, a)) {
-			swap(a, p);
-			for (p-=es; p>a && is_lt(e, p); p-=es);
-		}
-	p+=es;
+	for (p=e; a<p; a+=es)
+		if (is_lt(e, a))
+			for (p-=es; p!=a; p-=es)
+				if (is_lt(p, e)) {
+					swap(a, p);
+					break;
+				}
 
 	// Move the pivot point into position
 	if (p != e)
