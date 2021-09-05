@@ -25,6 +25,7 @@ SRC=	heap_sort.c \
 	rip_sort.c \
 	r2_sort.c \
 	ternary_heap.c \
+	tri_sort.c \
 	insertion_merge.c \
 	insertion_sort.c \
 	insertion_sort2.c \

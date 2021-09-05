@@ -35,7 +35,7 @@ shell_sort(char *a, size_t n, register const size_t es, register const int (*is_
 
 	do {
 		step = next_step;
-		for (gap = step*es, s = a + gap, b = s, d = s - gap; b < e; b += es, d = b - gap) {
+		for (gap = step*es, s = a + gap, b = s, d = a; b < e; b += es, d = b - gap) {
 			if (is_less_than(b, d)) {
 				copy(temp, b);
 				copy(b, d);

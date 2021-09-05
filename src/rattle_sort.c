@@ -104,8 +104,12 @@
 // Best overall balanced performance.  The 4294967295 value acts as a sentinel.  This step set supports
 // n values up to 10^10.  Higher n values will still work, the algorithm will just start to slow down.
 // The step set can be expanded with more values, but an n value of 10^10 should satisfy most things
+//static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 101, 131, 179, 239, 317, 421, 563, 751, 997, 1327, 1777,
+//			       2357, 3137, 4201, 5591, 7459, 9949, 13267, 17707, 23599, 31469, 41953, 55933, 74573, 99439, 4294967295};
 static const size_t steps[] = {1, 2, 3, 5, 7, 11, 13, 17, 23, 31, 43, 59, 73, 101, 131, 179, 239, 317, 421, 563, 751, 997, 1327, 1777,
 			       2357, 3137, 4201, 5591, 7459, 9949, 13267, 17707, 23599, 31469, 41953, 55933, 74573, 99439, 4294967295};
+
+#define CUTOFF 20
 
 void
 rattle_sort(register char *a, size_t n, register const size_t es, register const int (*is_lt)(const void *, const void *))
@@ -118,13 +122,16 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 
 	SWAPINIT(a, es);
 
+	// Do an initial pass sorting every pair
+	for (b=a, c=a+es; c<e; b=c+es, c=b+es)
+		if (is_lt(c, b))
+			swap(b, c);
+
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
-	while (step > 2) {
+	while (step > CUTOFF) {
 		for (step = next_step, b=a, c=a+(step*es); c<e; b+=es, c+=es)
 			if (is_lt(c, b))
 				swap(b, c);
-		if (!(step>2))
-			break;
 		for (step = next_step, b=e-es, c=b-(step*es); c>=a; b-=es, c-=es)
 			if (is_lt(b, c))
 				swap(b, c);
