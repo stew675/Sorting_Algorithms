@@ -122,11 +122,6 @@ rattle_sort(register char *a, size_t n, register const size_t es, register const
 
 	SWAPINIT(a, es);
 
-	// Do an initial pass sorting every pair
-	for (b=a, c=a+es; c<e; b=c+es, c=b+es)
-		if (is_lt(c, b))
-			swap(b, c);
-
 #define next_step       ((step > steps[pos+1]) ? (n / steps[++pos]) : (pos > 0 ? steps[--pos] : 1))
 	while (step > CUTOFF) {
 		for (step = next_step, b=a, c=a+(step*es); c<e; b+=es, c+=es)
