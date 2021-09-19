@@ -51,6 +51,7 @@ extern void shell_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void smooth_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void sqsort(void *a, size_t n, size_t es, int (*cmp)());
 extern void ternary_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
+extern void three_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void tri_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
@@ -164,6 +165,7 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-sm\tSmooth Sort\n");
 	fprintf(stderr, "\t-sq\tStew's QSort\n");
 	fprintf(stderr, "\t-ss\tSelection Sort\n");
+	fprintf(stderr, "\t-t3\tThree Sort\n");
 	fprintf(stderr, "\t-th\tTernary Heap Sort\n");
 	fprintf(stderr, "\t-tr\tTri Sort\n");
 	fprintf(stderr, "\t-wh\tWeak Heap Sort\n");
@@ -333,6 +335,11 @@ void
 	if (strcmp(opt, "-th") == 0) {
 		*sortname = "Ternary Heap Sort";
 		return ternary_heap;
+	}
+
+	if (strcmp(opt, "-t3") == 0) {
+		*sortname = "ThreeSort";
+		return three_sort;
 	}
 
 	if (strcmp(opt, "-tr") == 0) {

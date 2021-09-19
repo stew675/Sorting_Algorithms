@@ -178,19 +178,40 @@ typedef const int (*ilt)(const void *, const void *);
 	}									\
 }
 
+#define CUTOFF 1
+
 void
 life_sort(register char *a, size_t n, register const size_t es, register ilt is_lt)
 {
 	register char	*e = a + (n - 1) * es, *h, *p1, *p2, *p3, *p4, *stop;
 	register size_t	step, gap;
-	register int	pair, swaptype;
+	register int	pair, swaptype, c;
 	register WORD	t;
-	register double	nn = n / 4.0, factor = 1.71; // 1.644;
+	register double	nn = n / 4.0, factor = 1.71;
 
 	SWAPINIT(a, es);
 
-	for (step = nn; step > 0; step = (nn /= factor)) {
+	for (step = nn; step >= CUTOFF; step = (nn /= factor)) {
 
+#if 0
+		// Forward Pass
+		gap = step * es;
+		p1 = a + gap;
+		for (p4 = p1; p4 <= e; p4+=es)
+			for (c = 0, p3 = p4, p2 = p4 - gap; c < 3 && p3 >= p1 && is_lt(p3, p2); c++, p3 = p2, p2 -= gap)
+				swap(p2, p3);
+
+		if ((step = (nn /= factor)) < CUTOFF)
+			break;
+
+		// Backwards Pass
+		gap = step * es;
+		p4 = e - gap;
+		for (p1 = p4; p1 >= a; p1-=es)
+			for (c = 0, p2 = p1, p3 = p1 + gap; c < 3 && p2 <= p4 && is_lt(p3, p2); c++, p2 = p3, p3 += gap)
+				swap(p2, p3);
+
+#endif
 		// Forward Pass
 		gap = step * es;
 		for (h=a, pair=1; h<=e-gap*3; h+=(gap<<1), pair=0) {
@@ -203,7 +224,7 @@ life_sort(register char *a, size_t n, register const size_t es, register ilt is_
 				lsppt;
 		}
 
-		if ((step = (nn /= factor)) < 1)
+		if ((step = (nn /= factor)) < CUTOFF)
 			break;
 
 		// Backwards Pass
