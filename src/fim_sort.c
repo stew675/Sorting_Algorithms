@@ -55,53 +55,7 @@ fim_insert_sort(char *pa, const size_t n)
 } // fim_insert_sort
 
 
-static void
-old_merge_in_place(char *pa, size_t na, char *pb, char *pe)
-{
-old_again:
-	size_t	nb = (pe - pb) / es;
-	size_t	max = na > nb ? nb : na;
-	size_t	sn = max >> 1, min = 0;
-	size_t	bs;
-	char	*ta = pb - (sn * es), *tb = pb + (sn * es);
-	WORD	t;
-
-	while (min < max) {
-		if (is_lt(tb, ta - es))
-			min = sn + 1;
-		else
-			max = sn;
-
-		sn = (min + max) >> 1;
-		ta = pb - (sn * es);
-		tb = pb + (sn * es);
-	}
-
-	if (sn == 0)
-		return;
-
-	bs = pb - ta;
-	if (bs >= BULK_SWAP_MIN) {
-		swap_blk(ta, pb, bs);
-	} else {
-		for (char *sa = ta, *sb = pb; sa < pb; sa += es, sb += es)
-			swap(sa, sb);
-	}
-
-	if ((ta > pa) && is_lt(ta, ta - es))
-		old_merge_in_place(pa, na - sn, ta, pb);
-
-	if ((tb == pe) || !is_lt(tb, tb - es))
-		return;
-
-	pa = pb;
-	na = sn;
-	pb = tb;
-	goto old_again;
-//		old_merge_in_place(pb, sn, tb, pe);
-} // old_merge_in_place
-
-#if 1
+#if 0
 // Assumes NA and NB are greater than zero
 static void
 ripple_merge_in_place(char *pa, size_t na, char *pb, char *pe)
@@ -180,12 +134,12 @@ ripple_again:
 
 	// PA->SP is one sorted array, and SP->PB is another.  PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
-	if (is_lt(sp, sp-es))
+	if (is_lt(sp, sp - es))
 		ripple_merge_in_place(pa, (sp - pa) / es, sp, pb);
 
 	// PB->RP is the top part of A that was split
 	// RP->PE is the rest of the array we're merging into
-	if(rp < pe && is_lt(rp, rp - es)) {
+	if((rp < pe) && is_lt(rp, rp - es)) {
 		na = bs / es;
 		pa = pb;
 		pb = rp;
@@ -230,7 +184,7 @@ ripple_again:
 	// If we get here, we couldn't roll the full A block any further
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
-	size_t	hna = (na + 2) >> 2;
+	size_t	hna = (na >> 2) + 1;
 	char	*hpa = pa + hna * es;
 
 	if (is_lt(pb, pb - es))
@@ -301,7 +255,7 @@ fim_sort_with_workspace(char *w, char *pa, const size_t n)
 		return fim_insert_sort(pa, n);
 
 	// Split A into three mostly equal parts
-	size_t	na = n / 3;
+	size_t	na = n / 4.5;
 	size_t	nb = na;
 	size_t	nc = n - (na + nb);		// It's important that pc gets any spill-over as
 						// doing so avoids possible workspace overflow
@@ -373,7 +327,7 @@ simplest(char *pa, const size_t n)
 	if (n <= 7)
 		return fim_insert_sort(pa, n);
 
-	size_t	na = n >> 1, nb = n - na;
+	size_t	na = (n >> 2) + 1, nb = n - na;
 	char	*pb = pa + na * es;
 
 	if (na > 1)
@@ -382,8 +336,7 @@ simplest(char *pa, const size_t n)
 	if (nb > 1)
 		simplest(pb, nb);
 
-	if (is_lt(pb, pb - es))
-		ripple_merge_in_place(pa, na, pb, pa + (n * es));
+	ripple_merge_in_place(pa, na, pb, pa + (n * es));
 } // simplest
 
 #pragma GCC diagnostic pop

@@ -41,6 +41,7 @@ extern void life_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_buffer(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void mitm_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void new_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void odd_even_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
@@ -161,6 +162,7 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-in\tIntro Sort\n");
 	fprintf(stderr, "\t-is\tInsertion Sort\n");
 	fprintf(stderr, "\t-ls\tLife Sort\n");
+	fprintf(stderr, "\t-mm\tMeet In The Middle Sort\n");
 	fprintf(stderr, "\t-mb\tMerge Buffer Sort\n");
 	fprintf(stderr, "\t-me\tMerge Sort\n");
 	fprintf(stderr, "\t-mi\tMerge Inplace Sort\n");
@@ -293,6 +295,11 @@ void
 
 	if(strcmp(opt, "-mi") == 0) {
 		*sortname = "Merge In-Place Sort";
+		return mip_sort;
+	}
+
+	if(strcmp(opt, "-mm") == 0) {
+		*sortname = "Meet In The Middle Sort";
 		return mip_sort;
 	}
 
