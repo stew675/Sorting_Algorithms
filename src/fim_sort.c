@@ -85,19 +85,14 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 {
 	WORD	t;
 
-	// Check if the arrays aren't just reversed,  This is also
-	// true about 33% of the time that this function is called
-	if (is_lt(pe - es, pa))
-		return _swab(pa, pb, pe);
-
 	pe -= es;
 	do {
 		char *tb = pb;
-
 		pb -= es;
 		swap(pb, tb);
 		for ( ; (tb != pe) && is_lt(tb + es, tb); tb += es)
 			swap(tb + es, tb);
+		pe = tb - es;
 	} while ((pb != pa) && is_lt(pb, pb - es));
 } // insert_merge_in_place
 
@@ -153,11 +148,13 @@ ripple_again:
 		goto ripple_pop;
 	}
 
-	// Insertion MIP is faster for very small sorted array pairs
-	if ((pe - pa) <= (es << 3)) {
+#if 1
+	// Insertion MIP is slightly faster for very small sorted array pairs
+	if ((pe - pa) < (es << 3)) {
 		insertion_merge_in_place(pa, pb, pe);
 		goto ripple_pop;
 	}
+#endif
 
 	// Ripple all of A up as far as we can
 	for (rp = pb + bs; rp <= pe && is_lt(rp - es, pa); rp += bs) {
@@ -194,7 +191,6 @@ ripple_again:
 		rp = pe;
 		bs = rp - pb;
 	}
-
 	// Find spot within PA->PB to split it at
 	if (bs > (es << 3)) {	// Binary search on larger sets
 		size_t	min = 0, max = bs / es;
