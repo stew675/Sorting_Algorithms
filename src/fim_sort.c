@@ -11,6 +11,7 @@ extern	void	print_array(void *a, size_t n);
 static	const	int	(*is_lt)(const void *, const void *);
 static	int	swaptype;
 static	size_t	es;
+static	size_t	rsd = 0, mrsd = 0;
 
 #define	INSERT_SORT_MAX		  9
 #define	BULK_SWAP_MIN		256
@@ -31,6 +32,29 @@ swap_blk(char *a, char *b, size_t n)
 		n-=tc;
 	} while (n > 0);
 } // swap_blk
+
+
+// Swaps two contiguous blocks in place efficiently
+static void
+_swab(char *a, char *b, char *e)
+{
+	size_t	gapa = b - a, gapb = e - b;
+	WORD	t;
+
+	while (gapa && gapb) {
+		if (gapa < gapb) {
+			for (char *src = a, *dst = a + gapb; dst != e; src += es, dst += es)
+				swap(src, dst);
+			e -= gapa;
+			gapb = e - b;
+		} else {
+			for (char *src = b, *dst = a; src != e; src += es, dst += es)
+				swap(src, dst);
+			a += gapb;
+			gapa = b - a;
+		}
+	}
+} // _swab
 
 
 static void
@@ -54,7 +78,8 @@ fim_insert_sort(char *pa, const size_t n)
 			swap(tb, tb - es);
 } // fim_insert_sort
 
-#define	RIPPLE_STACK_SIZE	600
+
+#define	RIPPLE_STACK_SIZE	360
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
 		{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
@@ -81,7 +106,8 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 
 	// For whoever calls us, check if we need to do anything at all
 	if (!is_lt(pb, pb - es))
-		return;
+		goto ripple_pop;
+
 ripple_again:
 	bs = pb - pa;
 	if (bs == es) {
@@ -92,6 +118,13 @@ ripple_again:
 			pa = pb;
 			pb += es;
 		} while (pb != pe && is_lt(pb, pa));
+		goto ripple_pop;
+	}
+	if ((pb + es) == pe) {
+		do {
+			swap(pb, pb - es);
+			pb -= es;
+		} while ((pb != pa) && is_lt(pb, pb - es));
 		goto ripple_pop;
 	}
 
@@ -107,16 +140,32 @@ ripple_again:
 		}
 	}
 
-	// If we get here, we couldn't roll the full A block any further
+	// Okay, we couldn't ripple the full PA->PB up block any further
 	// Split the A block up, and keep trying with the remainders
-	if (rp > pe) {		// Account for any top-of-array overflow
+
+	// Handle scenario where our block cannot fit within what remains
+	if (rp > pe) {
+		if (pb == pe)
+			goto ripple_pop;
+
+		// Swap the remainder with our block if it's too small
+		// This prevents a stack runaway condition
+		if (((pe - pb) << 2) < bs) {
+			_swab(pa, pb, pe);
+			pb = pa + (pe - pb);
+			// Check if the swab sorted everything or not
+			if (is_lt(pb, pb - es))
+				goto ripple_again;
+			goto ripple_pop;
+		}
+
+		// Just adjust the pointers for the new limits
 		rp = pe;
 		bs = rp - pb;
 	}
 
 	// Find spot within A to split it at
-	if (bs >= (es >> 4)) {
-		// Binary search on adequately large A sets
+	if (bs >= (es >> 3)) {	// Binary search on larger A sets
 		size_t	min = 0, max = bs / es;
 		size_t	sn = max >> 1;
 
@@ -133,8 +182,9 @@ ripple_again:
 			sp = pb - (sn * es);
 			rp = pb + (sn * es);
 		}
-	} else {
-		for (sp = pb - bs; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
+	} else {	// Linear scan is faster for smaller A sets
+		sp = pb - bs;
+		for ( ; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
 	}
 
 	if (!(bs = pb - sp))		// Determine the byte-wise size of A
@@ -154,11 +204,10 @@ ripple_again:
 	// the use of `bs` here for speed, so just be aware of that
 	bs = ((rp != pe) && is_lt(rp, rp - es));
 
-	// PA->SP is one sorted array, and SP->PB is another.  PB is a hard upper
+	// PA->SP is one sorted array, and SP->PB is another. PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
 	if (is_lt(sp, sp - es)) {
-		if (bs)
-			RIPPLE_STACK_PUSH(pb, rp, pe);
+		if (bs) RIPPLE_STACK_PUSH(pb, rp, pe);
 		pe = pb;
 		pb = sp;
 		goto ripple_again;
