@@ -60,7 +60,7 @@ _swab(char *a, char *b, char *e)
 static void
 fim_insert_sort(char *pa, const size_t n)
 {
-	char	*pe = pa + n * es;
+	char	*pe = pa + n * es, *ta, *tb;
 	WORD	t;
 
 	if (n == 1)
@@ -73,9 +73,15 @@ fim_insert_sort(char *pa, const size_t n)
 	}
 
 	// Do an insertion sort of tiny arrays
-	for (char *ta = pa + es, *tb; ta != pe; ta += es)
+#if 1
+	for (ta = pe - es, pe = ta; ta != pa; )
+		for (tb = ta - es, ta = tb; (tb != pe) && is_lt(tb + es, tb); tb = tb + es)
+			swap(tb + es, tb);
+#else
+	for (ta = pa + es; ta != pe; ta += es)
 		for (tb = ta; tb != pa && is_lt(tb, tb - es); tb -= es)
 			swap(tb, tb - es);
+#endif
 } // fim_insert_sort
 
 
@@ -83,16 +89,15 @@ fim_insert_sort(char *pa, const size_t n)
 static void
 insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict pe)
 {
+	char	*tb = pe;
 	WORD	t;
 
-	pe -= es;
 	do {
-		char *tb = pb;
-		pb -= es;
-		swap(pb, tb);
-		for ( ; (tb != pe) && is_lt(tb + es, tb); tb += es)
+		pe = tb - es;  tb = pb - es;  pb = tb;
+		do {
 			swap(tb + es, tb);
-		pe = tb - es;
+			tb = tb + es;
+		} while ((tb != pe) && is_lt(tb + es, tb));
 	} while ((pb != pa) && is_lt(pb, pb - es));
 } // insert_merge_in_place
 
