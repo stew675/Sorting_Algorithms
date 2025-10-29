@@ -148,22 +148,27 @@ ripple_again:
 			swap(ta, tb);
 	}
 
+	// PB->RP is the top part of A that was split, and  RP->PE is the rest
+	// of the array we're merging into.  Capture the decision on if there's
+	// more above to work on.  *NOTE* - We're being naughty by over-loading
+	// the use of `bs` here for speed, so just be aware of that
+	bs = ((rp != pe) && is_lt(rp, rp - es));
+
 	// PA->SP is one sorted array, and SP->PB is another.  PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
-	if (is_lt(sp, sp - es))
-		RIPPLE_STACK_PUSH(pa, sp, pb);
-
-	// PB->RP is the top part of A that was split
-	// RP->PE is the rest of the array we're merging into
-	if ((rp != pe) && is_lt(rp, rp - es)) {
-		if (stack == _stack) {
-			// Just a cheeky stack push bypass
-			pa = pb;
-			pb = rp;
-			goto ripple_again;
-		}
-		RIPPLE_STACK_PUSH(pb, rp, pe);
+	if (is_lt(sp, sp - es)) {
+		if (bs)
+			RIPPLE_STACK_PUSH(pb, rp, pe);
+		pe = pb;
+		pb = sp;
+		goto ripple_again;
 	}
+	if (bs) {
+		pa = pb;
+		pb = rp;
+		goto ripple_again;
+	}
+
 ripple_pop:
 	RIPPLE_STACK_POP;
 } // ripple_merge_in_place
