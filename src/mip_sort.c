@@ -44,9 +44,9 @@ swap_blk(char *a, char *b, size_t n)
 // 'an' is the length of the first sorted section in 'a', referred to as A
 // 'bn' is the length of the second sorted section in 'a', referred to as B
 static void
-merge_inplace(register char *a, register size_t an, size_t bn, register size_t es, register ilt is_less_than, register int swaptype)
+merge_inplace(char *a, size_t an, size_t bn, size_t es, ilt is_less_than, int swaptype)
 {
-	register char	*b = a+an*es;
+	char	*b = a+an*es;
 
 	// If the first element of B is not less then the last element
 	// of A, then since A and B are in order, it naturally follows
@@ -55,18 +55,18 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 		return;
 	}
 
-	register char 	*e = b+bn*es;
+	char 	*e = b+bn*es;
 
 	// Use insertion sort to merge if the size of the sub-arrays is small enough
 	if ((an + bn) < MII_THRESH) {
-		register WORD   t;
+		WORD   t;
 
 		if (bn < an) {
-			for (register char *s, *v; b<e; b+=es)	// Insert Sort B into A
+			for (char *s, *v; b<e; b+=es)	// Insert Sort B into A
 				for (s=b, v=b-es; s>a && is_less_than(s, v); s=v, v-=es)
 					swap(s, v);
 		} else {
-			for (register char *s, *v; b>a; b-=es)	// Insert Sort A into B
+			for (char *s, *v; b>a; b-=es)	// Insert Sort A into B
 				for (v=b, s=b-es; v<e && is_less_than(v, s); s=v, v+=es)
 					swap(s, v);
 		}
@@ -77,10 +77,10 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	// of B is less than the last element of A, so we skip that comparison
 	// We do a binary search here for speed as most smaller sizes will
 	// have already been mopped up by the insertion sort intercept above
-	register char 	*pa, *pb;
+	char 	*pa, *pb;
 	{
-		register size_t max = bn > an ? an : bn;
-		register size_t min = 1, sn = (max + min) / 2;
+		size_t max = bn > an ? an : bn;
+		size_t min = 1, sn = (max + min) / 2;
 
 		pa = b - sn*es;
 		pb = b + sn*es;
@@ -94,9 +94,9 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 
 	// Now swap last part of A with first part of B
 	if (pb-b < BLK_THRESH) {
-		register WORD   t;
+		WORD   t;
 
-		for (register char *s=pa, *v=b; s<b; s+=es, v+=es)
+		for (char *s=pa, *v=b; s<b; s+=es, v+=es)
 			swap(s, v);
 	} else {
 		swap_blk(pa, b, pb-b);
@@ -105,13 +105,10 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 	// Now recursively merge the two sub-array pairings.  We know that
 	// (pb-b) > 0 but we need to check that either array didn't wholly
 	// swap out the other and cause the remaining portion to be zero
-	if (an < bn) {
-		if (pa>a) merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
-		if (e>pb) merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
-	} else {
-		if (e>pb) merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
-		if (pa>a) merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
-	}
+	if (pa>a)
+		merge_inplace(a, (pa-a)/es, (pb-b)/es, es, is_less_than, swaptype);
+	if (e>pb)
+		merge_inplace(b, (pb-b)/es, (e-pb)/es, es, is_less_than, swaptype);
 } // merge_inplace
 
 
@@ -119,14 +116,14 @@ merge_inplace(register char *a, register size_t an, size_t bn, register size_t e
 // insertion sort for when the splits get too small.  'n' must
 // ALWAYS be 2 or more.  It enforces this when calling itself
 static void
-merge_sort(register char *a, size_t n, register size_t es, register ilt is_less_than, register int swaptype)
+merge_sort(char *a, size_t n, size_t es, ilt is_less_than, int swaptype)
 {
 	size_t m = n/2;
 
 	// Do an insertion sort on the rest if 'n' is small enough
 	if (n < MSI_THRESH) {
-		register char *p, *s, *v, *e=a+n*es;
-		register WORD   t;
+		char *p, *s, *v, *e=a+n*es;
+		WORD   t;
 
 		for (p=a+es; p<e; p+=es)
 			for(s=p, v=p-es; s>a && is_less_than(s, v); s=v, v-=es)

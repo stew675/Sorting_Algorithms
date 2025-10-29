@@ -4,10 +4,14 @@
 #include <stdint.h>
 extern uint64_t numswaps, numcopies;
 
+
 // swap.h
 //
 // Set of handy macros for swapping things
 //
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 #define min(a,b)		\
    ({ __typeof__ (a) _a = (a);	\
@@ -16,11 +20,12 @@ extern uint64_t numswaps, numcopies;
 
 typedef int WORD;
 
-#define W sizeof(WORD) /* must be a power of 2 */
+#define W sizeof(WORD)		/* must be a power of 2 */
 #define SWAPINIT(a, es)					\
-	swaptype = (a - (char*)0 | es) % W ? 2 : es > W ? 1 : 0
+	swaptype = ((a - (char*)0) | es) % W ? 2 : es > W ? 1 : 0
 
 // Copies from b to a, and then from c to b, in one operation
+
 static void
 copyfunc3(char *a, char *b, char *c, size_t n, int swaptype)
 {
@@ -47,6 +52,7 @@ copyfunc3(char *a, char *b, char *c, size_t n, int swaptype)
 	}
 
 // Copies from b to a
+
 static void
 copyfunc(char *a, char *b, size_t n, int swaptype)
 {
@@ -59,7 +65,6 @@ copyfunc(char *a, char *b, size_t n, int swaptype)
 		for( ; n; n--, *a++ = *b++);
 	}
 } // copyfunc
-
 
 // Copies from b to a
 #define copy(a, b)					\
@@ -75,9 +80,9 @@ copyfunc(char *a, char *b, size_t n, int swaptype)
 	(t = a, a = b, b = t)
 
 static void
-swapfunc(char *a, char *b, size_t n, int swaptype)
+swapfunc(char *a, char *b, size_t n, size_t es, int swaptype)
 {
-	numswaps++;
+	numswaps += n / es;
 	if (swaptype <= 1) {
 		WORD t;
 		for( ; n > 0; a += W, b += W, n -= W) {
@@ -93,7 +98,7 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 
 #define swap(a, b)					\
 	if (swaptype) {					\
-		swapfunc(a, b, es, swaptype);		\
+		swapfunc(a, b, es, es, swaptype);	\
 	} else {					\
 		(void)exch(*(WORD*)(a), *(WORD*)(b), t);\
 		numswaps++;				\
@@ -101,7 +106,7 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 
 #define vecswap(a, b, n)			\
 	if (n > 0) {				\
-		swapfunc(a, b, n, swaptype);	\
+		swapfunc(a, b, n, es, swaptype);\
 	}
 
 #define PVINIT(pv, pm)				\
@@ -114,3 +119,6 @@ swapfunc(char *a, char *b, size_t n, int swaptype)
 	}
 
 #endif
+
+#pragma GCC diagnostic pop
+

@@ -27,6 +27,8 @@ extern void bishubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bitonic_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void bubble_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void comb_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void fim_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void fo_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void four_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void GrailSort(uint32_t *arr,int Len);
 extern void insertion_merge(void *a, size_t n, size_t es, int (*cmp)());
@@ -39,6 +41,7 @@ extern void life_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_buffer(void *a, size_t n, size_t es, int (*cmp)());
 extern void merge_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void mip_sort(void *a, size_t n, size_t es, int (*cmp)());
+extern void new_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void odd_even_sort(void *a, size_t n, size_t es, int (*cmp)());
 extern void qrsort(char *a, size_t n, size_t es, uint32_t (*getkey)(const void *));
 extern void nqsort(void *a, size_t n, size_t es, int (*cmp)());
@@ -58,7 +61,7 @@ extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
 // Used by functions that just want a key itself (eg. for radix sorts)
 static uint32_t
-get_uint32_key(register const void *a)
+get_uint32_key(const void *a)
 {
 	numkeys++;
 	return *((uint32_t *)a);
@@ -68,10 +71,10 @@ get_uint32_key(register const void *a)
 // Used to determine if the first uint32_t pointed at, is less than
 // the second uint32_t that is pointed at
 static int
-is_less_than_uint32(register const void *p1, register const void *p2)
+is_less_than_uint32(const void *p1, const void *p2)
 {
-	register const uint32_t *a = (const uint32_t *)p1;
-	register const uint32_t *b = (const uint32_t *)p2;
+	const uint32_t *a = (const uint32_t *)p1;
+	const uint32_t *b = (const uint32_t *)p2;
 
 	numcmps++;
 	return (*a < *b);
@@ -79,10 +82,10 @@ is_less_than_uint32(register const void *p1, register const void *p2)
 
 // Used to compare two uint32_t values pointed at by the pointers given
 int
-compare_uint32(register const void *p1, register const void *p2)
+compare_uint32(const void *p1, const void *p2)
 {
-	register const uint32_t *a = (const uint32_t *)p1;
-	register const uint32_t *b = (const uint32_t *)p2;
+	const uint32_t *a = (const uint32_t *)p1;
+	const uint32_t *b = (const uint32_t *)p2;
 
 	numcmps++;
 	return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
@@ -90,19 +93,23 @@ compare_uint32(register const void *p1, register const void *p2)
 
 
 void
-print_array(register uint32_t a[], register size_t n)
+print_array(uint32_t a[], size_t n)
 {
-	printf("\nDATA_SET = [%u", a[0]);
-	for(register size_t i = 1; i < n; i++)
-		printf(", %u", a[i]);
-	printf("]\n");
+	printf("\nDATA_SET = [");
+	for(size_t i = 0; i < n; i++) {
+		if ((i % 20) == 0) {
+			printf("\n");
+		}
+		printf("%5u,", a[i]);
+	}
+	printf("\n];\n");
 } // print_array
 
 
 static void
-test_sort(register uint32_t a[], register size_t n)
+test_sort(uint32_t a[], size_t n)
 {
-	for(register size_t i = 1; i < n; i++)
+	for(size_t i = 1; i < n; i++)
 		if(a[i-1] > a[i]) {
 			fprintf(stderr, "Didn't sort data correctly\n");
 			return;
@@ -144,6 +151,8 @@ usage(char *prog, char *msg)
 	fprintf(stderr, "\t-bs\tBidirectional Bubble Shell Sort\n");
 	fprintf(stderr, "\t-bu\tBubble Sort\n");
 	fprintf(stderr, "\t-co\tComb Sort\n");
+	fprintf(stderr, "\t-fi\tFast Inplace Merge Sort\n");
+	fprintf(stderr, "\t-fo\tFo Sort\n");
 	fprintf(stderr, "\t-gq\tGlibc QuickSort\n");
 	fprintf(stderr, "\t-gs\tGrail Sort\n");
 	fprintf(stderr, "\t-hm\tHeap Merge Sort\n");
@@ -212,7 +221,17 @@ void
 		return comb_sort;
 	}
 
+	if(strcmp(opt, "-fi") == 0) {
+		*sortname = "Fast Inplace Merge Sort";
+		return fim_sort;
+	}
+
 	if(strcmp(opt, "-fo") == 0) {
+		*sortname = "FO Sort";
+		return fo_sort;
+	}
+
+	if(strcmp(opt, "-fr") == 0) {
 		*sortname = "Four Sort";
 		return four_sort;
 	}
@@ -275,6 +294,11 @@ void
 	if(strcmp(opt, "-mi") == 0) {
 		*sortname = "Merge In-Place Sort";
 		return mip_sort;
+	}
+
+	if(strcmp(opt, "-ne") == 0) {
+		*sortname = "Stew's New Sort";
+		return new_sort;
 	}
 
 	if(strcmp(opt, "-nq") == 0) {
@@ -579,6 +603,8 @@ fillset(uint32_t *a, size_t n)
 		reverse_set(a, n);
 } // fillset
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 
 int
 main(int argc, char *argv[])
@@ -668,14 +694,19 @@ main(int argc, char *argv[])
 	startc = get_cycles();
 	if (sort != qrsort) {
 		if (sort == GrailSort) {
-			sort(a, n);
+			void	(*__sort)(uint32_t *, size_t) = sort;
+			
+			__sort(a, n);
 		} else if ((sort == qsort) || (sort == nqsort) || (sort == smooth_sort)) {
-			sort(a, n, sizeof(*a), compare_uint32);
+			void	(*__sort)(uint32_t *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
+			__sort(a, n, sizeof(*a), compare_uint32);
 		} else {
-			sort(a, n, sizeof(*a), is_less_than_uint32);
+			void	(*__sort)(uint32_t *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
+			__sort(a, n, sizeof(*a), is_less_than_uint32);
 		}
 	} else {
-		sort(a, n, sizeof(*a), get_uint32_key);
+		void	(*__sort)(uint32_t *, size_t, size_t, uint32_t (*compar)(const void *)) = sort;
+		__sort(a, n, sizeof(*a), get_uint32_key);
 	}
 	endc = get_cycles();
 	clock_gettime(CLOCK_MONOTONIC, &end);
@@ -702,3 +733,5 @@ main(int argc, char *argv[])
 
 	free(a);
 } /* main */
+
+#pragma GCC diagnostic pop

@@ -14,21 +14,21 @@
 			(is_lt(c, b) ? b : is_lt(c, a) ? c : a)) 
 
 static inline char *
-partition(register char *a, size_t n, register const size_t es,
-          register const int (*is_lt)(const void *, const void *), register int swaptype)
+partition( char *a, size_t n,  const size_t es,
+           const int (*is_lt)(const void *, const void *),  int swaptype)
 {
 	// e should point AT the last element in the array a
-	register char	*e=a+(n-1)*es, *p=a+(n/2)*es;
-	register WORD	t;
+	 char	*e=a+(n-1)*es, *p=a+(n/2)*es;
+	 WORD	t;
 
 	// Select a pivot point using median of 3
 	p = med3(a, p, e);
 
 	// Do a pseudo median-of-9 for larger partitions
 	if (n > 63) {
-		register size_t ne = (n/8)*es;
-		register char  *pl = med3(a+ne*2,  a+ne,  a+ne*3);
-		register char  *pr = med3(a+ne*5, a+ne*6, a+ne*7);
+		 size_t ne = (n/8)*es;
+		 char  *pl = med3(a+ne*2,  a+ne,  a+ne*3);
+		 char  *pr = med3(a+ne*5, a+ne*6, a+ne*7);
 
 		p = med3(pl, p, pr);
 	}
@@ -58,16 +58,16 @@ partition(register char *a, size_t n, register const size_t es,
 
 
 static void
-_sqsort(register char *a, size_t n, register const size_t es,
-        register const int (*is_lt)(const void *, const void *), register int swaptype)
+_sqsort( char *a, size_t n,  const size_t es,
+         const int (*is_lt)(const void *, const void *),  int swaptype)
 {
 	for (;;) {
-		register char	*e = a + n * es;
+		 char	*e = a + n * es;
 
 		// Insertion Sort
 		if (n < 19) {
-			register char	*p, *s, *v;
-			register WORD	t;
+			 char	*p, *s, *v;
+			 WORD	t;
 			char tmp[es];
 
 			for (s=a, p = a+es; p < e; s=p, p+=es)
@@ -82,7 +82,7 @@ _sqsort(register char *a, size_t n, register const size_t es,
 		}
 
 		// Quick Sort
-		register char *p = partition(a, n, es, is_lt, swaptype);
+		 char *p = partition(a, n, es, is_lt, swaptype);
 
 		// We only recurse on the smaller of the 2 partitions, and just restart the
 		// loop on the larger of the two.  This keeps recursion depth very minimal
@@ -108,8 +108,7 @@ _sqsort(register char *a, size_t n, register const size_t es,
 
 // My Implementation of qsort
 void
-sqsort(register char *a, size_t n, register const size_t es,
-       register const int (*is_lt)(const void *, const void *))
+sqsort( char *a, size_t n,  const size_t es, const int (*is_lt)(const void *, const void *))
 {
 	int swaptype;
 

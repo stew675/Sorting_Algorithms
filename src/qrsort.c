@@ -130,7 +130,7 @@ _qrsort_stop_inner:
 #else
 
 static void
-_qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(), uint32_t msb)
+_qrsort(register char *ps, register char *pe, register const size_t es, register const uint32_t (*getkey)(void *), uint32_t msb)
 {
 	register uint32_t mask;
 	register char *sps, *spe;	// Saved Partition Start/End
@@ -219,7 +219,7 @@ getmsb(uint32_t v)
 } // getmsb
 
 void
-qrsort(char *a, size_t n, size_t es, const uint32_t (*getkey)())
+qrsort(char *a, size_t n, size_t es, const uint32_t (*getkey)(void *))
 {
 	register char *e = a + (es * (n - 1));
 	uint32_t msb;

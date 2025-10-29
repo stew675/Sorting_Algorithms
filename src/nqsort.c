@@ -8,7 +8,7 @@
 #include "swap.h"
 
 static char *
-med3(char *a, char *b, char *c, int (*cmp)())
+med3(char *a, char *b, char *c, int (*cmp)(void *, void *))
 {
 	return	cmp(a, b) < 0 ?
 		(cmp(b, c) < 0 ? b : cmp(a, c) < 0 ? c : a) :
@@ -17,7 +17,7 @@ med3(char *a, char *b, char *c, int (*cmp)())
 
 
 void
-nqsort(char *a, size_t n, size_t es, int (*cmp)())
+nqsort(char *a, size_t n, size_t es, int (*cmp)(void *, void *))
 {
 	char *pa, *pb, *pc, *pd, *pl, *pm, *pn, *pv;
 	int r, swaptype;
@@ -25,7 +25,7 @@ nqsort(char *a, size_t n, size_t es, int (*cmp)())
 	size_t s;
 
 	SWAPINIT(a, es);
-	if (n < 7) { /* Insertion sort on smallest arrays */
+	if (n <= 9) { /* Insertion sort on smallest arrays */
 		for (pm = a + es; pm < a + n*es; pm += es) {
 			for (pl = pm; pl > a && cmp(pl-es, pl) > 0; pl -= es) {
 				swap(pl, pl-es);
@@ -36,11 +36,11 @@ nqsort(char *a, size_t n, size_t es, int (*cmp)())
 
 	pm = a + (n/2)*es; /* Small arrays, middle element */
 
-	if (n > 7) {
+	if (n > 9) {
 		pl = a;
 		pn = a + (n-1)*es;
 
-		if (n > 40) { /* Big arrays, pseudomedian of 9 */
+		if (n > 44) { /* Big arrays, pseudomedian of 9 */
 			s = (n/8)*es;
 			pl = med3(pl, pl+s, pl+2*s, cmp);
 			pm = med3(pm-s, pm, pm+s, cmp);
@@ -55,14 +55,16 @@ nqsort(char *a, size_t n, size_t es, int (*cmp)())
 	for (;;) {
 		while (pb <= pc && (r = cmp(pb, pv)) <= 0) {
 			if (r == 0) {
-				swap(pa, pb); pa += es;
+				swap(pa, pb);
+				pa += es;
 			}
 			pb += es;
 		}
 
 		while (pc >= pb && (r = cmp(pc, pv)) >= 0) {
 			if (r == 0) {
-				swap(pc, pd); pd -= es;
+				swap(pc, pd);
+				pd -= es;
 			}
 			pc -= es;
 		}

@@ -13,6 +13,8 @@ SRC=	heap_sort.c \
 	main.c \
 	ahm_sort.c \
 	aim_sort.c \
+	fim_sort.c \
+	fo_sort.c \
 	four_sort.c \
 	life_sort.c \
 	nqsort.c \
@@ -20,6 +22,7 @@ SRC=	heap_sort.c \
 	rattle_sort.c \
 	merge_buffer.c \
 	merge_sort.c \
+	new_sort.c \
 	odd_even_sort.c \
 	roller_sort.c \
 	mip_sort.c \
@@ -59,7 +62,7 @@ BIN=ts
 
 CC= gcc
 OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
-DEBUG_FLAGS=
+DEBUG_FLAGS=  -Wno-incompatible-pointer-types  -Wno-compare-distinct-pointer-types
 LIBS=
 
 ######################################################################################
