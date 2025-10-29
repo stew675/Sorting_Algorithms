@@ -165,7 +165,7 @@ ripple_again:
 	}
 
 	// Find spot within A to split it at
-	if (bs >= (es >> 3)) {	// Binary search on larger A sets
+	if (bs >= (es << 3)) {	// Binary search on larger A sets
 		size_t	min = 0, max = bs / es;
 		size_t	sn = max >> 1;
 
@@ -187,7 +187,8 @@ ripple_again:
 		for ( ; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
 	}
 
-	if (!(bs = pb - sp))		// Determine the byte-wise size of A
+	// Determine the byte-wise size of A
+	if (!(bs = pb - sp))	
 		goto ripple_pop;	// Nothing to swap.  We're done here
 
 	// Do a single ripple at the split point
