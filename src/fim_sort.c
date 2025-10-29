@@ -54,18 +54,37 @@ fim_insert_sort(char *pa, const size_t n)
 			swap(tb, tb - es);
 } // fim_insert_sort
 
+#define	RIPPLE_STACK_SIZE	600
 
-#if 0
+#define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
+		{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
+
+#define	RIPPLE_STACK_POP		\
+	{				\
+		if (stack == _stack)	\
+			return;		\
+		pe = *--stack;		\
+		pb = *--stack;		\
+		pa = *--stack;		\
+		goto ripple_again;	\
+	}
+
+#if 1
 // Assumes NA and NB are greater than zero
 static void
-ripple_merge_in_place(char *pa, size_t na, char *pb, char *pe)
+ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
+	char	*_stack[RIPPLE_STACK_SIZE], **stack = _stack;
 	char	*rp, *sp;	// Ripple-Pointer, and Split Pointer
 	size_t	bs;		// Byte-wise block size of pa->pb
 	WORD	t;		// Temporary variable for swapping
 
+	// For whoever calls us, check if we need to do anything at all
+	if (!is_lt(pb, pb - es))
+		return;
 ripple_again:
-	if (na == 1) {
+	bs = pb - pa;
+	if (bs == es) {
 		// Just insert merge single items.
 		// We already know that *PB < *PA
 		do {
@@ -73,13 +92,11 @@ ripple_again:
 			pa = pb;
 			pb += es;
 		} while (pb != pe && is_lt(pb, pa));
-		return;
+		goto ripple_pop;
 	}
 
 	// Ripple all of A up as far as we can
-	bs = pb - pa;		// Determine the byte-wise size of A
-	rp = pb + bs;		// Ripple Pointer
-	for ( ; rp <= pe && is_lt(rp - es, pa); rp += bs) {
+	for (rp = pb + bs; rp <= pe && is_lt(rp - es, pa); rp += bs) {
 		if (bs >= BULK_SWAP_MIN) {
 			swap_blk(pa, pb, bs);
 			pa = pb;
@@ -98,7 +115,7 @@ ripple_again:
 	}
 
 	// Find spot within A to split it at
-	if (na > 7) {
+	if (bs >= (es >> 4)) {
 		// Binary search on adequately large A sets
 		size_t	min = 0, max = bs / es;
 		size_t	sn = max >> 1;
@@ -120,11 +137,10 @@ ripple_again:
 		for (sp = pb - bs; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
 	}
 
-	if (sp == pb)		// Nothing to swap.  We're done here
-		return;
+	if (!(bs = pb - sp))		// Determine the byte-wise size of A
+		goto ripple_pop;	// Nothing to swap.  We're done here
 
 	// Do a single ripple at the split point
-	bs = rp - pb;		// Determine the byte-wise size of A
 	if (bs >= BULK_SWAP_MIN) {
 		swap_blk(sp, pb, bs);
 	} else {
@@ -135,16 +151,21 @@ ripple_again:
 	// PA->SP is one sorted array, and SP->PB is another.  PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
 	if (is_lt(sp, sp - es))
-		ripple_merge_in_place(pa, (sp - pa) / es, sp, pb);
+		RIPPLE_STACK_PUSH(pa, sp, pb);
 
 	// PB->RP is the top part of A that was split
 	// RP->PE is the rest of the array we're merging into
-	if((rp < pe) && is_lt(rp, rp - es)) {
-		na = bs / es;
-		pa = pb;
-		pb = rp;
-		goto ripple_again;
+	if ((rp != pe) && is_lt(rp, rp - es)) {
+		if (stack == _stack) {
+			// Just a cheeky stack push bypass
+			pa = pb;
+			pb = rp;
+			goto ripple_again;
+		}
+		RIPPLE_STACK_PUSH(pb, rp, pe);
 	}
+ripple_pop:
+	RIPPLE_STACK_POP;
 } // ripple_merge_in_place
 
 #else
@@ -184,6 +205,7 @@ ripple_again:
 	// If we get here, we couldn't roll the full A block any further
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
+//	size_t	hna = (((pb - pa) / es) >> 2) + 1;
 	size_t	hna = (na >> 2) + 1;
 	char	*hpa = pa + hna * es;
 
@@ -315,8 +337,8 @@ fim_sort_main(char *pa, const size_t n)
 	// Now use the Ripple Merge In Place algorithm to merge A into BC
 	// Ripple Merge doesn't need a workspace, but it's half the speed
 	// of doing a workspace based merge, so we invoke it sparingly
-	if (is_lt(pb, pb - es))
-		ripple_merge_in_place(pa, na, pb, pa + n * es);
+//	if (is_lt(pb, pb - es))
+		ripple_merge_in_place(pa, pb, pa + n * es);
 } // fim_sort_main
 
 
@@ -336,7 +358,7 @@ simplest(char *pa, const size_t n)
 	if (nb > 1)
 		simplest(pb, nb);
 
-	ripple_merge_in_place(pa, na, pb, pa + (n * es));
+	ripple_merge_in_place(pa, pb, pa + (n * es));
 } // simplest
 
 #pragma GCC diagnostic pop
