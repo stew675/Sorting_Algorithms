@@ -34,7 +34,7 @@ swap_blk(char *a, char *b, size_t n)
 } // swap_blk
 
 
-// Swaps two contiguous blocks in place efficiently
+// Swaps two contiguous blocks of differing lengths in place efficiently
 static void
 _swab(char *a, char *b, char *e)
 {
@@ -79,6 +79,29 @@ fim_insert_sort(char *pa, const size_t n)
 } // fim_insert_sort
 
 
+// Merge two sorted sub-arrays together using insertion sort
+static void
+insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict pe)
+{
+	WORD	t;
+
+	// Check if the arrays aren't just reversed,  This is also
+	// true about 33% of the time that this function is called
+	if (is_lt(pe - es, pa))
+		return _swab(pa, pb, pe);
+
+	pe -= es;
+	do {
+		char *tb = pb;
+
+		pb -= es;
+		swap(pb, tb);
+		for ( ; (tb != pe) && is_lt(tb + es, tb); tb += es)
+			swap(tb + es, tb);
+	} while ((pb != pa) && is_lt(pb, pb - es));
+} // insert_merge_in_place
+
+
 #define	RIPPLE_STACK_SIZE	360
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
@@ -99,7 +122,8 @@ fim_insert_sort(char *pa, const size_t n)
 static void
 ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
-	char	*_stack[RIPPLE_STACK_SIZE], **stack = _stack;
+	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE];
+	char	**stack = _stack;
 	char	*rp, *sp;	// Ripple-Pointer, and Split Pointer
 	size_t	bs;		// Byte-wise block size of pa->pb
 	WORD	t;		// Temporary variable for swapping
@@ -110,9 +134,9 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 
 ripple_again:
 	bs = pb - pa;
+
+	// Just insert merge single items. We already know that *PB < *PA
 	if (bs == es) {
-		// Just insert merge single items.
-		// We already know that *PB < *PA
 		do {
 			swap(pa, pb);
 			pa = pb;
@@ -120,11 +144,18 @@ ripple_again:
 		} while (pb != pe && is_lt(pb, pa));
 		goto ripple_pop;
 	}
+
 	if ((pb + es) == pe) {
 		do {
 			swap(pb, pb - es);
 			pb -= es;
 		} while ((pb != pa) && is_lt(pb, pb - es));
+		goto ripple_pop;
+	}
+
+	// Insertion MIP is faster for very small sorted array pairs
+	if ((pe - pa) <= (es << 3)) {
+		insertion_merge_in_place(pa, pb, pe);
 		goto ripple_pop;
 	}
 
@@ -140,8 +171,8 @@ ripple_again:
 		}
 	}
 
-	// Okay, we couldn't ripple the full PA->PB up block any further
-	// Split the A block up, and keep trying with the remainders
+	// We couldn't ripple the full PA->PB block up any further
+	// Split the block up, and keep trying with the remainders
 
 	// Handle scenario where our block cannot fit within what remains
 	if (rp > pe) {
@@ -150,7 +181,7 @@ ripple_again:
 
 		// Swap the remainder with our block if it's too small
 		// This prevents a stack runaway condition
-		if (((pe - pb) << 2) < bs) {
+		if (bs > ((pe - pb) << 2)) {
 			_swab(pa, pb, pe);
 			pb = pa + (pe - pb);
 			// Check if the swab sorted everything or not
@@ -159,13 +190,13 @@ ripple_again:
 			goto ripple_pop;
 		}
 
-		// Just adjust the pointers for the new limits
+		// Adjust the pointers for the new limits
 		rp = pe;
 		bs = rp - pb;
 	}
 
-	// Find spot within A to split it at
-	if (bs >= (es << 3)) {	// Binary search on larger A sets
+	// Find spot within PA->PB to split it at
+	if (bs > (es << 3)) {	// Binary search on larger sets
 		size_t	min = 0, max = bs / es;
 		size_t	sn = max >> 1;
 
@@ -182,14 +213,13 @@ ripple_again:
 			sp = pb - (sn * es);
 			rp = pb + (sn * es);
 		}
-	} else {	// Linear scan is faster for smaller A sets
+	} else {	// Linear scan is faster for smaller sets
 		sp = pb - bs;
 		for ( ; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
 	}
 
-	// Determine the byte-wise size of A
-	if (!(bs = pb - sp))	
-		goto ripple_pop;	// Nothing to swap.  We're done here
+	if (!(bs = pb - sp))	  // Determine the byte-wise size of the split
+		goto ripple_pop;  // If nothing to swap, we're done here
 
 	// Do a single ripple at the split point
 	if (bs >= BULK_SWAP_MIN) {
@@ -392,8 +422,7 @@ fim_sort_main(char *pa, const size_t n)
 	// Now use the Ripple Merge In Place algorithm to merge A into BC
 	// Ripple Merge doesn't need a workspace, but it's half the speed
 	// of doing a workspace based merge, so we invoke it sparingly
-//	if (is_lt(pb, pb - es))
-		ripple_merge_in_place(pa, pb, pa + n * es);
+	ripple_merge_in_place(pa, pb, pa + n * es);
 } // fim_sort_main
 
 
