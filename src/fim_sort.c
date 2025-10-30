@@ -108,14 +108,10 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 #define	RIPPLE_STACK_SIZE	360
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
-		{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
+	{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
 
-#define	RIPPLE_STACK_POP		\
-	{				\
-		pe = *--stack;		\
-		pb = *--stack;		\
-		pa = *--stack;		\
-	}
+#define	RIPPLE_STACK_POP(s1, s2, s3) \
+	{ s3 = *--stack; s2 = *--stack; s1 = *--stack; }
 
 // Assumes NA and NB are greater than zero
 static void
@@ -248,7 +244,7 @@ ripple_again:
 
 ripple_pop:
 	while (stack != _stack) {
-		RIPPLE_STACK_POP;
+		RIPPLE_STACK_POP(pa, pb, pe);
 		if (is_lt(pb, pb - es))
 			goto ripple_again;
 	}
