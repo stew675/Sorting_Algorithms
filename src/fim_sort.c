@@ -102,6 +102,8 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 } // insert_merge_in_place
 
 
+#if 0
+
 #define	RIPPLE_STACK_SIZE	360
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
@@ -114,10 +116,8 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 		pe = *--stack;		\
 		pb = *--stack;		\
 		pa = *--stack;		\
-		goto ripple_again;	\
 	}
 
-#if 1
 // Assumes NA and NB are greater than zero
 static void
 ripple_merge_in_place(char *pa, char *pb, char *pe)
@@ -252,58 +252,77 @@ ripple_again:
 
 ripple_pop:
 	RIPPLE_STACK_POP;
+	goto ripple_again;
 } // ripple_merge_in_place
 
 #else
 
+#define	RIPPLE_STACK_SIZE	240
+
+#define	RIPPLE_STACK_PUSH(s1, s2) 	\
+		{ *stack++ = s1; *stack++ = s2; }
+
+#define	RIPPLE_STACK_POP			\
+	{					\
+		if (stack == _stack)		\
+			return;			\
+		pb = *--stack;			\
+		pa = *--stack;			\
+	}
+
 // Assumes NA and NB are greater than zero
 static void
-ripple_merge_in_place(char *pa, size_t na, char *pb, char *pe)
+ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
-	size_t	bs;
+	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE];
+	char	**stack = _stack;
+	size_t	na, bs;
 	WORD	t;		// Temporary variable for swapping
 
+	// For whoever calls us, check if we need to do anything at all
+	if (!is_lt(pb, pb - es))
+		goto ripple_pop;
+
 ripple_again:
-	if (na == 1) {
-		// Just insert merge single items. We already know that *PB < *PA
+	bs = pb - pa;	// Determine the byte-wise size of A
+
+	// Just insert merge single items. We already know that *PB < *PA
+	if (bs == es) {
 		do {
 			swap(pa, pb);
 			pa = pb;   pb += es;
 		} while (pb < pe && is_lt(pb, pa));
-		return;
+		goto ripple_pop;
 	}
 
-	// Ripple A up as far as we can
-	// Technically we can test up to fp <= pe, but this occurs extremely
-	// rarely and would require an extra if statement below that messes
-	// with branch prediction, which slows things down
-	bs = pb - pa;		// Determine the byte-wise size of A
-	for (char *fp = pb + bs ; fp < pe && is_lt(fp - es, pa); fp += bs) {
+	na = bs / es;	// Calculate this now, so it's avalable later
+
+	// Ripple the PA->PB block up as far as we can
+	for (char *rp = pb + bs ; (rp <= pe) && is_lt(rp - es, pa); rp += bs) {
 		if (bs < BULK_SWAP_MIN) {
-			for ( ; pb < fp; pa += es, pb += es)
+			for ( ; pb < rp; pa += es, pb += es)
 				swap (pa, pb);
 		} else {
 			swap_blk(pa, pb, bs);
-			pa = pb;     pb = fp;
+			pa = pb;     pb = rp;
 		}
 	}
 
-	// If we get here, we couldn't roll the full A block any further
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
-//	size_t	hna = (((pb - pa) / es) >> 2) + 1;
-	size_t	hna = (na >> 2) + 1;
-	char	*hpa = pa + hna * es;
+	if ((pb != pe) && is_lt(pb, pb - es)) {
+		char	*hpa = pa + (((na >> 2) + 1) * es);
 
-	if (is_lt(pb, pb - es))
-		ripple_merge_in_place(hpa, na - hna, pb, pe);
-
-	if (is_lt(hpa, hpa - es)) {
-		na = hna;
-		pb = hpa;
+		RIPPLE_STACK_PUSH(pa, hpa);
+		pa = hpa;
 		goto ripple_again;
-		// ripple_merge_in_place(pa, na, hpa, pe);
 	}
+
+ripple_pop:
+	RIPPLE_STACK_POP;
+	if (is_lt(pb, pb - es))
+		goto ripple_again;
+	goto ripple_pop;
 } // ripple_merge_in_place
 #endif
 
