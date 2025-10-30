@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "swap.h"
 
 extern	void	print_array(void *a, size_t n);
@@ -16,6 +17,7 @@ static	size_t	rsd = 0, mrsd = 0;
 #define	INSERT_SORT_MAX		  9
 #define	SWAP_BLOCK_MIN		256
 #define	SKEW			8
+
 
 // Takes advantage of any vectorization in the optimized memcpy library functions
 static void
@@ -36,6 +38,7 @@ swap_blk(char *a, char *b, size_t n)
 
 
 // Swaps two contiguous blocks of differing lengths in place efficiently
+// Basically implements the well known block Rotate() functionality
 static void
 _swab(char *a, char *b, char *e)
 {
@@ -58,6 +61,7 @@ _swab(char *a, char *b, char *e)
 } // _swab
 
 
+// Implementation of standard insertion sort
 static void
 fim_insert_sort(char *pa, const size_t n)
 {
@@ -73,16 +77,9 @@ fim_insert_sort(char *pa, const size_t n)
 		return;
 	}
 
-	// Do an insertion sort of tiny arrays
-#if 1
-	for (ta = pe - es, pe = ta; ta != pa; )
-		for (tb = ta - es, ta = tb; (tb != pe) && is_lt(tb + es, tb); tb = tb + es)
-			swap(tb + es, tb);
-#else
 	for (ta = pa + es; ta != pe; ta += es)
 		for (tb = ta; tb != pa && is_lt(tb, tb - es); tb -= es)
 			swap(tb, tb - es);
-#endif
 } // fim_insert_sort
 
 
@@ -103,9 +100,9 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 } // insert_merge_in_place
 
 
-#if 1
+#if 0
 
-#define	RIPPLE_STACK_SIZE	128
+#define	RIPPLE_STACK_SIZE	240
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
 	{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
@@ -252,7 +249,8 @@ ripple_pop:
 
 #else
 
-#define	RIPPLE_STACK_SIZE	128
+// A stack size of 240 is enough to merge 10^12 items into another array
+#define	RIPPLE_STACK_SIZE	240
 
 // Assumes NA and NB are greater than zero
 static void
@@ -260,7 +258,7 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
 	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE * 2];
 	char	**stack = _stack;
-	size_t	bs, coalesce = 0;
+	size_t	bs, condition;
 	WORD	t;		// Temporary variable for swapping
 
 	// For whoever calls us, check if we need to do anything at all
@@ -268,7 +266,7 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 		goto ripple_pop;
 
 ripple_again:
-	bs = pb - pa;	// Determine the byte-wise size of A
+	bs = pb - pa;		// Determine the byte-wise size of A
 
 	// Just insert merge single items. We already know that *PB < *PA
 	if (bs == es) {
@@ -280,9 +278,9 @@ ripple_again:
 
 	// Ripple the PA->PB block up as far as we can
 	{	char	*rp = pb + bs;
-		size_t	val = ((rp < pe) && is_lt(rp - es, pa));
+		condition = ((rp < pe) && is_lt(rp - es, pa));
 
-		while (val) {
+		while (condition) {
 			if (bs < SWAP_BLOCK_MIN) {
 				for ( ; pb < rp; pa += es, pb += es)
 					swap(pa, pb);
@@ -291,22 +289,25 @@ ripple_again:
 				pa = pb;     pb = rp;
 			}
 			rp += bs;
-			val = ((rp < pe) && is_lt(rp - es, pa));
+			condition = ((rp < pe) && is_lt(rp - es, pa));
 		}
 	}
 
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
 	// Division is slow.  Calculate the following ahead of time
-	bs = (bs / (es * 8)) + 1;
-	coalesce = ((stack != _stack) && (*(stack - 1) == pa));
+	bs = (bs / (es << 3)) + 1;	// How much to split off of A
+	// Determine if the split was rejected and if we can coalesce
+	// the rejected split with the split point on the work stack
+	condition = ((stack != _stack) && (*(stack - 1) == pa));
 	if (is_lt(pb, pb - es)) {
 		char	*spa = pa + (bs * es);
 
-		// Coalesce any fragmentation if possible
-		if (coalesce) {
+		if (condition) {
+			// Coalesce a rejected split with work stack
 			*(stack - 1) = spa;
 		} else {
+			// Push a new split point to the work stack
 			*stack++ = pa;  *stack++ = spa;
 		}
 		pa = spa;
