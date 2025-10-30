@@ -14,7 +14,8 @@ static	size_t	es;
 static	size_t	rsd = 0, mrsd = 0;
 
 #define	INSERT_SORT_MAX		  9
-#define	BULK_SWAP_MIN		256
+#define	SWAP_BLOCK_MIN		256
+#define	SKEW			8
 
 // Takes advantage of any vectorization in the optimized memcpy library functions
 static void
@@ -102,7 +103,7 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 } // insert_merge_in_place
 
 
-#if 0
+#if 1
 
 #define	RIPPLE_STACK_SIZE	360
 
@@ -111,8 +112,6 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 
 #define	RIPPLE_STACK_POP		\
 	{				\
-		if (stack == _stack)	\
-			return;		\
 		pe = *--stack;		\
 		pb = *--stack;		\
 		pa = *--stack;		\
@@ -161,7 +160,7 @@ ripple_again:
 
 	// Ripple all of A up as far as we can
 	for (rp = pb + bs; rp <= pe && is_lt(rp - es, pa); rp += bs) {
-		if (bs >= BULK_SWAP_MIN) {
+		if (bs >= SWAP_BLOCK_MIN) {
 			swap_blk(pa, pb, bs);
 			pa = pb;
 			pb = rp;
@@ -221,7 +220,7 @@ ripple_again:
 		goto ripple_pop;  // If nothing to swap, we're done here
 
 	// Do a single ripple at the split point
-	if (bs >= BULK_SWAP_MIN) {
+	if (bs >= SWAP_BLOCK_MIN) {
 		swap_blk(sp, pb, bs);
 	} else {
 		for (char *ta = sp, *tb = pb; ta < pb; ta += es, tb += es)
@@ -229,18 +228,17 @@ ripple_again:
 	}
 
 	// PB->RP is the top part of A that was split, and  RP->PE is the rest
-	// of the array we're merging into.  Capture the decision on if there's
-	// more above to work on.  *NOTE* - We're being naughty by over-loading
-	// the use of `bs` here for speed, so just be aware of that
-	bs = ((rp != pe) && is_lt(rp, rp - es));
-
+	// of the array we're merging into.
 	// PA->SP is one sorted array, and SP->PB is another. PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
 	if (is_lt(sp, sp - es)) {
-		if (bs) RIPPLE_STACK_PUSH(pb, rp, pe);
+		if (rp != pe)
+			RIPPLE_STACK_PUSH(pb, rp, pe);
 		pe = pb;
 		pb = sp;
 		goto ripple_again;
+	} else {
+		bs = ((rp != pe) && is_lt(rp, rp - es));
 	}
 	if (bs) {
 		pa = pb;
@@ -249,8 +247,11 @@ ripple_again:
 	}
 
 ripple_pop:
-	RIPPLE_STACK_POP;
-	goto ripple_again;
+	while (stack != _stack) {
+		RIPPLE_STACK_POP;
+		if (is_lt(pb, pb - es))
+			goto ripple_again;
+	}
 } // ripple_merge_in_place
 
 #else
@@ -282,13 +283,19 @@ ripple_again:
 	}
 
 	// Ripple the PA->PB block up as far as we can
-	for (char *rp = pb + bs; (rp < pe) && is_lt(rp - es, pa); rp += bs) {
-		if (bs < BULK_SWAP_MIN) {
-			for ( ; pb < rp; pa += es, pb += es)
-				swap(pa, pb);
-		} else {
-			swap_blk(pa, pb, bs);
-			pa = pb;     pb = rp;
+	{	char	*rp = pb + bs;
+		size_t	val = ((rp < pe) && is_lt(rp - es, pa));
+
+		while (val) {
+			if (bs < SWAP_BLOCK_MIN) {
+				for ( ; pb < rp; pa += es, pb += es)
+					swap(pa, pb);
+			} else {
+				swap_blk(pa, pb, bs);
+				pa = pb;     pb = rp;
+			}
+			rp += bs;
+			val = ((rp < pe) && is_lt(rp - es, pa));
 		}
 	}
 
@@ -314,11 +321,67 @@ ripple_pop:
 } // ripple_merge_in_place
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+
+// Merges A + B into W
+__attribute__((noinline))
+static void
+fim_merge_into_workspace(char *ws, char *pa, char *pb, char *pe)
+{
+	char	*ta = pa, *tb = pb;
+	WORD	t;
+
+	for ( ; (ta != pb) && (tb != pe); ws += es) {
+		if (is_lt(tb, ta)) {
+			swap(ws, tb);
+			tb += es;
+		} else {
+			swap(ws, ta);
+			ta += es;
+		}
+	}
+
+	for ( ; ta != pb; ta += es, ws += es)
+		swap(ws, ta);
+
+	for ( ; tb != pe; tb += es, ws += es)
+		swap(ws, tb);
+} // fim_merge_into_workspace
+
+
+// Merges a pre-loaded workspace and a sorted B, into A + B
+// Requirements: A + B are contiguous
+__attribute__((noinline))
+static void
+fim_merge_from_workspace(char *ws, char *we, char *pa, char *pb, char *pe)
+{
+	WORD	t;
+
+	// Now merge rest of W into B
+	for ( ; (pb != pe) && (ws != we); pa += es)
+		if(is_lt(pb, ws)) {
+			swap(pa, pb);
+			pb += es;
+		} else {
+			swap(pa, ws);
+			ws += es;
+		}
+
+	// Merge any remainder
+	if ((we - ws) < SWAP_BLOCK_MIN) {
+		for ( ; ws != we; ws += es, pa += es)
+			swap(pa, ws);
+	} else {
+		swap_blk(ws, pa, we - ws);
+	}
+} // from_merge_from_workspace
+
 
 // Merges A and B together using workspace W
 // Assumes both NA and NB are > zero on entry
 static void
-fim_merge_with_workspace(char *w, char *a, const size_t na, char *b, const size_t nb)
+fim_merge_using_workspace(char *w, char *a, const size_t na, char *b, const size_t nb)
 {
 	WORD	t;
 
@@ -332,7 +395,7 @@ fim_merge_with_workspace(char *w, char *a, const size_t na, char *b, const size_
 	char	*pw = w;
 
 	// Now copy everything remaining from A to W
-	if ((b - a) < BULK_SWAP_MIN) {
+	if ((b - a) < SWAP_BLOCK_MIN) {
 		for (char *ta = a; ta != b; pw += es, ta += es)
 			swap(pw, ta);
 	} else {
@@ -359,8 +422,9 @@ fim_merge_with_workspace(char *w, char *a, const size_t na, char *b, const size_
 	// Merge any remainder
 	for ( ; w != pw; w += es, a += es)
 		swap(a, w);
-} // fim_merge_with_workspace
+} // fim_merge_using_workspace
 
+#if 1
 
 static void
 fim_sort_with_workspace(char *w, char *pa, const size_t n)
@@ -384,15 +448,12 @@ fim_sort_with_workspace(char *w, char *pa, const size_t n)
 
 	// Merge A and B together using W as the workspace
 	if (is_lt(pc, pc - es))
-		fim_merge_with_workspace(w, pb, nb, pc, nc);
+		fim_merge_using_workspace(w, pb, nb, pc, nc);
 
 	if (is_lt(pb, pb - es))
-		fim_merge_with_workspace(w, pa, na, pb, nb + nc);
+		fim_merge_using_workspace(w, pa, na, pb, nb + nc);
 } // fim_sort_with_workspace
 
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 
 static void
 fim_sort_main(char *pa, const size_t n)
@@ -422,7 +483,7 @@ fim_sort_main(char *pa, const size_t n)
 
 	// Merge B and C together using A as a workspace
 	if (is_lt(pc, pc - es))
-		fim_merge_with_workspace(ws, pb, nb, pc, nc);
+		fim_merge_using_workspace(ws, pb, nb, pc, nc);
 
 	// Now finally sort A
 	fim_sort_main(pa, na);
@@ -433,6 +494,90 @@ fim_sort_main(char *pa, const size_t n)
 	ripple_merge_in_place(pa, pb, pa + n * es);
 } // fim_sort_main
 
+#else
+
+static void
+fim_sort_using_workspace(char * const ws, char * const pa, const size_t n)
+{
+	if (n == 1)
+		return;
+
+	// Handle small array size inputs with insertion sort
+	if ((n <= INSERT_SORT_MAX) || (n < (SKEW + 2)))
+		return fim_insert_sort(pa, n);
+
+	// Split A into three with ratios of (1:1:SKEW) in size
+	size_t	nb = n / (SKEW + 2);
+	size_t	nc = nb * SKEW;
+	size_t	na = n - (nb + nc);
+
+	char	*pb = pa + na * es;
+	char	*pc = pb + nb * es;
+
+	// Keep recursing until we hit an insertion sort
+	fim_sort_using_workspace(ws, pc, nc);
+	fim_sort_using_workspace(ws, pb, nb);
+	fim_sort_using_workspace(ws, pa, na);
+
+	if (is_lt(pb, pb - es)) {
+		char	*we = ws + (na + nb) * es;
+		char	*pe = pa + n * es;
+
+		fim_merge_into_workspace(ws, pa, pb, pc);
+		fim_merge_from_workspace(ws, we, pa, pc, pe);
+	} else if (is_lt(pc, pc - es)) {
+		fim_merge_using_workspace(ws, pa, na + nb, pc, nc);
+	}
+} // fim_sort_using_workspace
+
+static void
+fim_sort_main(char * const pa, const size_t n)
+{
+	// Handle small array size inputs with insertion sort
+	if ((n <= INSERT_SORT_MAX) || (n < 8))
+		return fim_insert_sort(pa, n);
+
+	// Split A into four parts with ratios of (2:1:1:4) in size.  These
+	// values appear to be close to optimal for the RippleSort Algorithm
+	// which works best when rippling in arrays that are 1/4 the size of
+	// the target array.
+	size_t	nb = n >> 3;
+	size_t	nc = nb;
+	size_t	nd = nb << 2;
+	size_t	na = n - (nb + nc + nd);
+
+	char	*pb = pa + na * es;
+	char	*pc = pb + nb * es;
+	char	*pd = pc + nc * es;
+
+	// Now Sort B, C, D, using A as workspace
+
+	fim_sort_using_workspace(pa, pd, nd);
+	fim_sort_using_workspace(pa, pc, nc);
+	fim_sort_using_workspace(pa, pb, nb);
+
+	if (is_lt(pc, pc - es)) {
+		char	*we = pa + (nb + nc) * es;
+		char	*pe = pa + n * es;
+
+		fim_merge_into_workspace(pa, pb, pc, pd);
+		fim_merge_from_workspace(pa, we, pb, pd, pe);
+	} else if (is_lt(pd, pd - es)) {
+		fim_merge_using_workspace(pa, pb, nb+nc, pd, nd);
+	}
+
+	// Now finally recurse to sort A
+	fim_sort_main(pa, na);
+
+//	printf("After Merge: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
+
+	// Now use the Ripple Merge In Place algorithm to merge A into B
+	// Ripple Merge doesn't need a workspace, but it's half the speed
+	// of doing a workspace based merge, so we invoke it sparingly
+	ripple_merge_in_place(pa, pb, pa + n * es);
+} // fim_sort_main
+
+#endif
 
 static void
 simplest(char *pa, const size_t n)
@@ -441,7 +586,9 @@ simplest(char *pa, const size_t n)
 	if (n <= 7)
 		return fim_insert_sort(pa, n);
 
-	size_t	na = (n >> 2) + 1, nb = n - na;
+//	size_t	na = (n >> 2) + 1
+	size_t	na = (n / 4.6) + 1;
+	size_t	nb = n - na;
 	char	*pb = pa + na * es;
 
 	if (na > 1)
