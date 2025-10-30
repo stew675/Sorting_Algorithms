@@ -103,7 +103,7 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 } // insert_merge_in_place
 
 
-#if 1
+#if 0
 
 #define	RIPPLE_STACK_SIZE	360
 
@@ -260,7 +260,7 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
 	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE];
 	char	**stack = _stack;
-	size_t	bs;
+	size_t	bs, can_coalesce = 0;
 	WORD	t;		// Temporary variable for swapping
 
 	// For whoever calls us, check if we need to do anything at all
@@ -298,11 +298,21 @@ ripple_again:
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
 	// Division is slow.  Calculate the following ahead of time
+#if 1
+	bs = (bs / (es * 8)) + 1;
+	can_coalesce = ((stack != _stack) && (*(stack - 1) == pa));
+#else
 	bs = (bs / (es * 5)) + 1;
+#endif
 	if (is_lt(pb, pb - es)) {
 		char	*spa = pa + (bs * es);
 
-		*stack++ = pa;  *stack++ = spa;
+		// Coalesce any fragmentation if possible
+		if (can_coalesce) {
+			*(stack - 1) = spa;
+		} else {
+			*stack++ = pa;  *stack++ = spa;
+		}
 		pa = spa;
 		goto ripple_again;
 	}
