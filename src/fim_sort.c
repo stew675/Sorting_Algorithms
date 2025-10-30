@@ -255,7 +255,7 @@ ripple_pop:
 
 #else
 
-#define	RIPPLE_STACK_SIZE	240
+#define	RIPPLE_STACK_SIZE	256
 
 // Assumes NA and NB are greater than zero
 static void
@@ -263,6 +263,7 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
 	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE];
 	char	**stack = _stack;
+	size_t	bs;
 	WORD	t;		// Temporary variable for swapping
 
 	// For whoever calls us, check if we need to do anything at all
@@ -270,39 +271,36 @@ ripple_merge_in_place(char *pa, char *pb, char *pe)
 		goto ripple_pop;
 
 ripple_again:
-	size_t	bs = pb - pa;	// Determine the byte-wise size of A
+	bs = pb - pa;	// Determine the byte-wise size of A
 
 	// Just insert merge single items. We already know that *PB < *PA
 	if (bs == es) {
 		do {
-			swap(pa, pb);
-			pa = pb;   pb += es;
-		} while (pb < pe && is_lt(pb, pa));
+			swap(pa, pb);  pa = pb;  pb += es;
+		} while (pb != pe && is_lt(pb, pa));
 		goto ripple_pop;
 	}
 
 	// Ripple the PA->PB block up as far as we can
-	for (char *rp = pb + bs ; (rp < pe) && is_lt(rp - es, pa); rp += bs) {
+	for (char *rp = pb + bs; (rp < pe) && is_lt(rp - es, pa); rp += bs) {
 		if (bs < BULK_SWAP_MIN) {
 			for ( ; pb < rp; pa += es, pb += es)
-				swap (pa, pb);
+				swap(pa, pb);
 		} else {
 			swap_blk(pa, pb, bs);
 			pa = pb;     pb = rp;
 		}
 	}
 
-	// Division is slow.  Calculate the following ahead of time
-	bs = (bs / (es * 5)) + 1;
-
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
+	// Division is slow.  Calculate the following ahead of time
+	bs = (bs / (es * 5)) + 1;
 	if (is_lt(pb, pb - es)) {
-//		char	*hpa = pa + (((bs >> 2) + 1) * es);
-		char	*hpa = pa + (bs * es);
+		char	*spa = pa + (bs * es);
 
-		*stack++ = pa;  *stack++ = hpa;
-		pa = hpa;
+		*stack++ = pa;  *stack++ = spa;
+		pa = spa;
 		goto ripple_again;
 	}
 
