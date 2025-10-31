@@ -23,16 +23,16 @@
 #include "swap.h"
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register int swaptype, register char *c)
+_ms(char *a, size_t n, size_t es, const int (*is_less_than)(const void *, const void *), int swaptype, char *c)
 {
 	if (n < 2)
 		return;
 
-	register WORD t;
+	WORD t;
 
 	// Split array into 2
 	size_t an = (n + 1) / 2;
-	register char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
+	char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
 
 	_ms(a, an, es, is_less_than, swaptype, c);
 	_ms(b, n - an, es, is_less_than, swaptype, c);
@@ -71,7 +71,7 @@ merge_sort(char *a, size_t n, size_t es, const int (*is_less_than)(const void *,
 		return;
 	}
 
-	register int swaptype;
+	int swaptype;
 
 	SWAPINIT(a, es);
 

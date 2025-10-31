@@ -23,9 +23,9 @@
 
 __attribute__((noinline))
 static void
-_is(register char *a, size_t n, register const size_t es, register const int (*is_less_than)(const void *, const void *))
+_is(char *a, size_t n, const size_t es, const int (*is_less_than)(const void *, const void *))
 {
-	register char	*p, *s, *e = a + n * es;
+	char	*p, *s, *e = a + n * es;
 
 	for (p = a+es; p < e; p+=es)
 		for(s=p; (s>a) && is_less_than(s, s-es); s-=es)
@@ -37,14 +37,14 @@ _is(register char *a, size_t n, register const size_t es, register const int (*i
 #define SORT_THRESH	20
 
 static void
-_ms(register char *a, size_t n, size_t es, register const int (*is_less_than)(const void *, const void *), register char *c)
+_ms(char *a, size_t n, size_t es, const int (*is_less_than)(const void *, const void *), char *c)
 {
 	if (n < 2)
 		return;
 
 	// Split array into 2
 	size_t an = (n + 1) / 2;
-	register char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
+	char *b = a + (an * es), *be = a + (n * es), *ce = c + an * es;
 
 	// Merge sort each sub-array
 	if (an > SORT_THRESH)

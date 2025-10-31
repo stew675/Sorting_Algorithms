@@ -452,7 +452,7 @@ ripple_merge_down(char *pa, char *pb, char *pe)
 				swap(pa, pb);
 				pa = pb;  pb += es;
 			} while ((pb != pe) && is_lt(pb, pa));
-			break;
+			b31835144reak;
 		}
 		if ((pb + es) == pe) {	// Check if just 1 item in B
 			do {

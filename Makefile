@@ -15,7 +15,6 @@ SRC=	main.c \
 	fim_sort.c \
 	fo_sort.c \
 	four_sort.c \
-	grail_sort.c \
 	heap_merge.c \
 	heap_sort.c \
 	insertion_merge.c \
@@ -44,6 +43,7 @@ SRC=	main.c \
 	tri_sort.c \
 	weak_heap.c \
 
+#	grail_sort.c \
 #	insertion_sort3.c \
 #	merge_inplace.c \
 

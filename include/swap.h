@@ -1,6 +1,5 @@
 #ifndef SWAP_H
 #define SWAP_H
-
 #include <stdint.h>
 extern uint64_t numswaps, numcopies;
 
@@ -18,7 +17,7 @@ extern uint64_t numswaps, numcopies;
        __typeof__ (b) _b = (b);	\
      _a < _b ? _a : _b; })
 
-typedef int WORD;
+typedef uint64_t WORD;
 
 #define W sizeof(WORD)		/* must be a power of 2 */
 #define SWAPINIT(a, es)					\

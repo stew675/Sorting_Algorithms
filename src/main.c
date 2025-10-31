@@ -16,6 +16,12 @@ static int data_set_ops = 0;
 static uint32_t data_set_limit = UINT32_MAX;
 static unsigned int random_seed = 1;
 static bool verbose = false;
+static bool stable = true;
+
+struct item {
+	uint32_t	value;
+	uint32_t	order;
+};
 
 static uint64_t numkeys = 0;
 
@@ -62,10 +68,11 @@ extern void weak_heap(uint32_t *a, size_t n, size_t es, int (*cmp)());
 
 // Used by functions that just want a key itself (eg. for radix sorts)
 static uint32_t
-get_uint32_key(const void *a)
+get_uint32_key(const void *va)
 {
+	struct item *a = (struct item *)va;
 	numkeys++;
-	return *((uint32_t *)a);
+	return a->value;
 } // get_uint32_key
 
 
@@ -74,49 +81,65 @@ get_uint32_key(const void *a)
 static int
 is_less_than_uint32(const void *p1, const void *p2)
 {
-	const uint32_t *a = (const uint32_t *)p1;
-	const uint32_t *b = (const uint32_t *)p2;
+	struct item *a = (struct item *)p1;
+	struct item *b = (struct item *)p2;
+
+//	const uint32_t *a = (const uint32_t *)p1;
+//	const uint32_t *b = (const uint32_t *)p2;
 
 	numcmps++;
-	return (*a < *b);
+	return (a->value < b->value);
 } // is_less_than_uint32
 
 // Used to compare two uint32_t values pointed at by the pointers given
 int
 compare_uint32(const void *p1, const void *p2)
 {
-	const uint32_t *a = (const uint32_t *)p1;
-	const uint32_t *b = (const uint32_t *)p2;
+	const uint32_t av = ((struct item *)p1)->value;
+	const uint32_t bv = ((struct item *)p2)->value;
+//	const uint32_t *a = (const uint32_t *)p1;
+//	const uint32_t *b = (const uint32_t *)p2;
 
 	numcmps++;
-	return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
+	return (av == bv) ? 0 : (av < bv) ? -1 : 1;
 } // compare_uint32
 
 
 void
-print_array(uint32_t a[], size_t n)
+print_array(struct item a[], size_t n)
 {
 	printf("\nDATA_SET = [");
 	for(size_t i = 0; i < n; i++) {
 		if ((i % 20) == 0) {
 			printf("\n");
 		}
-		printf("%5u,", a[i]);
+		printf("%5u,", a[i].value);
 	}
 	printf("\n];\n");
 } // print_array
 
 
 static void
-test_sort(uint32_t a[], size_t n)
+test_sort(struct item a[], size_t n)
 {
 	for(size_t i = 1; i < n; i++)
-		if(a[i-1] > a[i]) {
+		if(a[i-1].value > a[i].value) {
 			fprintf(stderr, "Didn't sort data correctly\n");
 			return;
 		}
 } // test_sort
 
+static void
+test_stability(struct item a[], size_t n)
+{
+	stable = true;
+	for(size_t i = 1; i < n; i++)
+		if(a[i-1].value == a[i].value)
+			if (a[i-1].order > a[i].order) {
+				stable = false;
+				return;
+			}
+} // test_stability
 
 static inline uint64_t
 get_cycles()
@@ -245,7 +268,8 @@ void
 
 	if(strcmp(opt, "-gs") == 0) {
 		*sortname = "Grail Sort";
-		return GrailSort;
+//		return GrailSort;
+		return heap_merge;
 	}
 
 	if(strcmp(opt, "-hm") == 0) {
@@ -450,9 +474,9 @@ parse_control_opt(char *argv[])
 
 
 void
-reverse_set(uint32_t *a, size_t n)
+reverse_set(struct item *a, size_t n)
 {
-	uint32_t t;
+	struct item t;
 
 	for (size_t i = 0; i < (n / 2); i++) {
 		t = a[(n - i) - 1];
@@ -464,7 +488,7 @@ reverse_set(uint32_t *a, size_t n)
 
 // Perform a disorder on the set
 void
-disorder_set(uint32_t *a, size_t n)
+disorder_set(struct item *a, size_t n)
 {
 	if (disorder_factor <= 0)
 		return;
@@ -474,7 +498,7 @@ disorder_set(uint32_t *a, size_t n)
 	// Fowards pass
 	for (size_t i = 0; i < (n - 1); i++) {
 		size_t target, range;
-		uint32_t t;
+		struct item t;
 
 		// Determine if we will disorder this element
 		// We halve the disorder factor because we do
@@ -500,7 +524,7 @@ disorder_set(uint32_t *a, size_t n)
 	// Backwards pass
 	for (size_t i = n - 1; i > 0; i--) {
 		size_t target, range;
-		uint32_t t;
+		struct item t;
 
 		// Determine if we will disorder this element
 		if ((random() % 100) >= ((disorder_factor + 1) / 2))
@@ -594,12 +618,12 @@ get_next_val(uint32_t val, size_t pos, size_t n)
 
 
 void
-fillset(uint32_t *a, size_t n)
+fillset(struct item *a, size_t n)
 {
 	// First fill the set in an ordered manner
-	a[0] = get_next_val(0, 0, n);
+	a[0].value = get_next_val(0, 0, n);
 	for (size_t i = 1; i < n; i++) {
-		a[i] = get_next_val(a[i-1], i, n);
+		a[i].value = get_next_val(a[i-1].value, i, n);
 	}
 
 	// Disorder the set according to the disorder factor
@@ -608,6 +632,12 @@ fillset(uint32_t *a, size_t n)
 	// Reverse the data set if asked to
 	if (data_set_ops & DATA_SET_REVERSED)
 		reverse_set(a, n);
+
+	// Apply stability tagging
+	for (uint32_t i = 0; i < n; i++)
+		a[i].order = i;
+
+	stable = true;
 } // fillset
 
 #pragma GCC diagnostic push
@@ -617,7 +647,7 @@ int
 main(int argc, char *argv[])
 {
 	size_t		n;
-	uint32_t	*a;
+	struct item	*a;
 	void		(*sort)() = NULL;
 	char		*sortname;
 	int		optpos = 1;
@@ -665,7 +695,7 @@ main(int argc, char *argv[])
 	srandom(random_seed);
 
 	// Allocate up the array to sort
-	if ((a = (uint32_t *)aligned_alloc(4096, n * sizeof(*a))) == NULL) {
+	if ((a = (struct item *)aligned_alloc(4096, n * sizeof(*a))) == NULL) {
 		fprintf(stderr, "alloc failed - out of memory\n");
 		exit(-1);
 	}
@@ -700,19 +730,21 @@ main(int argc, char *argv[])
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	startc = get_cycles();
 	if (sort != qrsort) {
-		if (sort == GrailSort) {
+		if ((sort == qsort) || (sort == nqsort) || (sort == smooth_sort)) {
+			void	(*__sort)(struct item *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
+			__sort(a, n, sizeof(*a), compare_uint32);
+#if 0
+		} else if (sort == GrailSort) {
 			void	(*__sort)(uint32_t *, size_t) = sort;
 			
 			__sort(a, n);
-		} else if ((sort == qsort) || (sort == nqsort) || (sort == smooth_sort)) {
-			void	(*__sort)(uint32_t *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
-			__sort(a, n, sizeof(*a), compare_uint32);
+#endif
 		} else {
-			void	(*__sort)(uint32_t *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
+			void	(*__sort)(struct item *, size_t, size_t, int (*compar)(const void *, const void *)) = sort;
 			__sort(a, n, sizeof(*a), is_less_than_uint32);
 		}
 	} else {
-		void	(*__sort)(uint32_t *, size_t, size_t, uint32_t (*compar)(const void *)) = sort;
+		void	(*__sort)(struct item *, size_t, size_t, uint32_t (*compar)(const void *)) = sort;
 		__sort(a, n, sizeof(*a), get_uint32_key);
 	}
 	endc = get_cycles();
@@ -725,6 +757,9 @@ main(int argc, char *argv[])
 	// Did it sort correctly?
 	test_sort(a, n);
 
+	// Was sort stable?
+	test_stability(a, n);
+
 	// Stats time!
 	double tim = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
 	printf("\n");
@@ -734,6 +769,7 @@ main(int argc, char *argv[])
 	printf("Number of Swaps     : %lu\n", numswaps);
 	printf("Number of Copies    : %lu\n", numcopies);
 	printf("Number of CPU Cycles: %lu\n", (endc - startc));
+	printf("Sort is             : %s\n", stable ? "STABLE" : "UNSTABLE");
 	printf(" ");
 	printf(" ");
 	printf("\n");
