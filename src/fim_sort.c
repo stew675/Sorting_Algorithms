@@ -8,6 +8,7 @@
 #include "swap.h"
 
 extern	void	print_array(void *a, size_t n);
+extern	void	print_value(void *a);
 extern	uint64_t	numcmps;
 
 static	const	int	(*is_lt)(const void *, const void *);
@@ -497,6 +498,7 @@ fim_merge_using_workspace(char *w, char *a, const size_t na, char *b, const size
 } // fim_merge_using_workspace
 
 
+// We actually need surprisingly little work-space to sort quite quickly
 static void
 fim_sort_using_workspace(char * const ws, const size_t wn, char * const pa, const size_t n)
 {
@@ -594,28 +596,25 @@ extract_unique_sub(char * const a, char * const pe)
 		char *dp = pa - es;
 
 		// Now find the end of the run of duplicates
-		while ((pa < pe) && !is_lt(pa - es, pa))
-			pa += es;
-
-		// pa now points at the item after the run of
-		// duplicates.  Adjust its position
+		for (pa += es; (pa < pe) && !is_lt(pa - es, pa); pa += es);
 		pa -= es;
 
+		// pa now points at the last item of the duplicate run
 		// Roll the duplicates down
 		if ((pa - dp) > es) {
 			// Multiple items.  swab them down
-			if (pu > a) {
+			if (dp > pu)
 				_swab(pu, dp, pa);
-			}
 			pu += (pa - dp);
 		} else {
 			// Single item, just ripple it down
-			while (dp > pa) {
+			while (dp > pu) {
 				swap(dp, dp - es);
 				dp -= es;
 			}
 			pu += es;
 		}
+		pa += es;
 	}
 
 	return pu;
@@ -629,12 +628,13 @@ extract_uniques(char * const a, const size_t n)
 {
 	char	*pe = a + (n * es);
 
-	if (n < 30)
+	// I'm not sure what a good value should be here, but 40 seems okay
+	if (n < 40)
 		return extract_unique_sub(a, pe);
 
 	// Divide and conquer!
 	char	*pa = a;
-	size_t	na = ((n + n) / 5) + 1;
+	size_t	na = (n + 3) >> 2;	// Looks to be about right
 	char	*pb = pa + (na * es);
 
 	// First find where to split at
@@ -649,7 +649,7 @@ extract_uniques(char * const a, const size_t n)
 	na = (pb - pa) / es;
 	size_t	nb = n - na;
 
-	// Note that there is ALWAYS at least 1 unique to be found
+	// Note that there is ALWAYS at least one unique to be found
 	char	*apu = extract_uniques(pa, na);
 	char	*bpu = extract_uniques(pb, nb);
 
@@ -663,54 +663,88 @@ extract_uniques(char * const a, const size_t n)
 	return pb;
 } // extract_uniques
 
+#define	EXTRACT_UNIQUES		1
+#define	DO_NOT_EXTRACT_UNIQUES	0
+// Workspace ratio is the amount we divide N by. 10-30 is best
+#define	WORKSPACE_RATIO		16
 
 static void
 fim_stable_sort(char * const a, const size_t n, int extract)
 {
-	if (n <= 1000)
+	// 40 items appears to be the cross-over
+	if (n <= 40)
 		return stable_sort(a, n);
 
 	size_t	na, nr, nw;
 	char	*ws, *pr;
 	
 	if (extract) {
-		na = n / 10;
+		na = n / WORKSPACE_RATIO;
 		nr = n - na;
 		pr = a + (na * es);	// Pointer to rest
 
 		stable_sort(a, na);
-//	printf("Before extract uniques: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
 		ws = extract_uniques(a, na);
-//	printf("After extract uniques: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
 
 		nw = (pr - ws) / es;
 		na = na - nw;
 	} else {
 		na = 0;
-		nw = n / 5;
+		nw = n / WORKSPACE_RATIO;
 		ws = a;
 		nr = n - nw;
 		pr = a + (nw * es);	// Pointer to rest
 	}
 
-
-//	printf("NA = %ld, NW = %ld, NR = %ld\n", na, nw, nr);
-
 	// Okay, so A->WS is a set of sorted non-uniques
-	// WS->REST is a set of uniques we can use as workspace
-	// REST->PE is everything else
+	// WS->PR is a set of uniques we can use as workspace
+	// PR->PE is everything else that we still need to sort
 
-	// Fall-back to vanilla stable-sort if can't get enough workspace
-	if ((nw * 20) < nr) {
-//		printf("Falling back to stable-sort\n");
-		stable_sort(pr, nr);
-	} else {
-//		printf("Sorting using workspace\n");
-		fim_sort_using_workspace(ws, nw, pr, nr);
+	// If we don't get enough work-space, we'll try twice more
+	// before giving up and falling back to stable_sort
+	// We'll give up immediately if we couldn't even find 1%
+	int	num_tries = 2;
+	bool	sorted = false;
+	while (((nw * WORKSPACE_RATIO * 12) >> 3) < nr) {
+		if ((num_tries-- <= 0) || ((nw * 100) < nr)) {
+			// Give up and fall back to old faithful
+			stable_sort(pr, nr);
+			sorted = true;
+			break;
+		}
+
+//		printf("Not enough workspace - Trying harder\n");
+		size_t	nna = nr / 9;
+		char	*nws = pr;
+		nr -= nna;
+		pr = pr + (nna * es);
+
+		// Sort new work-space candidate
+		stable_sort(nws, nna);
+
+		// Merge old workspace with new
+		ripple_merge_in_place(ws, nws, pr);
+
+		// We may have picked up new duplicates
+		nws = extract_uniques(ws, nw + nna);
+
+		// Merge original duplicates with new ones
+		if ((nws > ws) && (ws > a))
+			ripple_merge_in_place(a, ws, nws);
+
+		ws = nws;
+		nw = (pr - ws) / es;
 	}
 
-	// Now sort our work-space
-	fim_stable_sort(ws, nw, 0);
+	if (!sorted) {
+		// Sort the remainder using the workspace
+		fim_sort_using_workspace(ws, nw, pr, nr);
+
+		// Now sort our work-space. Since the work-space 
+		// is already filled with uniques, then there's
+		// no need to extract them again
+		fim_stable_sort(ws, nw, DO_NOT_EXTRACT_UNIQUES);
+	}
 
 	if (na > nw) {
 		// Merge our work-space with the rest
@@ -762,10 +796,8 @@ fim_sort(char *a, const size_t n, const size_t _es, const int (*_is_lt)(const vo
 
 	SWAPINIT(a, es);
 
-//	print_array(a, n);
-
 //	merge_test(a, n);
 //	fim_sort_main(a, n);
-	fim_stable_sort(a, n, 1);
+	fim_stable_sort(a, n, EXTRACT_UNIQUES);
 //	print_array(a, n);
 } // fim_sort

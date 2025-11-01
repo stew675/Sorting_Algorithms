@@ -119,6 +119,12 @@ print_array(struct item a[], size_t n)
 } // print_array
 
 
+void
+print_value(struct item *a)
+{
+	printf("%5u\n", a->value);
+} // print_value
+
 static void
 test_sort(struct item a[], size_t n)
 {
