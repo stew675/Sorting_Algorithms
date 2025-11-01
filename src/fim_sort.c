@@ -103,13 +103,15 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 
 // Stack size needs to be 16 * log16(N), where N is the size of the block
 // being merged. 80 covers 10^6 items. 160 covers 10^12 items.  240 is 10^18
+// 1 work stack position holds 2 pointers (16 bytes on 64-bit machines)
 #define	SPLIT_STACK_SIZE	160
+#define	SPLIT_SIZE		(((((pb - pa) / es) + 15) >> 4) * es)
 
 static void
 ripple_split_in_place(char *pa, char *pb, char *pe)
 {
 	_Alignas(64) char *_stack[SPLIT_STACK_SIZE * 2];
-	char	**stack = _stack;
+	char	**stack = _stack, *rp, *spa;
 	size_t	split_size, bs;
 	WORD	t;	// Temporary variable for swapping
 
@@ -118,7 +120,7 @@ ripple_split_in_place(char *pa, char *pb, char *pe)
 		goto split_pop;
 
 	// Determine our initial split size.  Ensure a minimum of 1 element
-	split_size = ((((pb - pa) / es) + 15) >> 4) * es;
+	split_size = SPLIT_SIZE;
 
 split_again:
 	bs = pb - pa;		// Determine the byte-wise size of A
@@ -132,7 +134,7 @@ split_again:
 	}
 
 	// Advance the PA->PB block up as far as we can
-	for (char *rp = pb + bs; (rp < pe) && is_lt(rp - es, pa); rp += bs)
+	for (rp = pb + bs; (rp < pe) && is_lt(rp - es, pa); rp += bs)
 		if (bs < SWAP_BLOCK_MIN) {
 			for ( ; pb < rp; pa += es, pb += es)
 				swap(pa, pb);
@@ -143,14 +145,14 @@ split_again:
 
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
-	if (is_lt(pb, pb - es)) {
-		char	*spa = pa + split_size;
-
+	rp = pb - es;  spa = pa + split_size;
+	if (is_lt(pb, rp)) {
 		// Keep our split point within limits
-		spa = (spa > (pb - es)) ? (pb - es) : spa;
+		spa = (spa > rp) ? rp : spa;
 
 		// Push a new split point to the work stack
-		*stack++ = pa;  *stack++ = spa;
+		*stack++ = pa;
+		*stack++ = spa;
 
 		pa = spa;
 		goto split_again;
@@ -158,14 +160,17 @@ split_again:
 
 split_pop:
 	while (stack != _stack) {
-		pb = *--stack;  pa = *--stack;
-		split_size = ((((pb - pa) / es) + 15) >> 4) * es;
+		pb = *--stack;
+		pa = *--stack;
 
-		if (is_lt(pb, pb - es))
+		if (is_lt(pb, pb - es)) {
+			split_size = SPLIT_SIZE;
 			goto split_again;
+		}
 	}
 } // ripple_split_in_place
 
+// 1 work stack position holds 3 pointers (24 bytes on 64-bit machines)
 #define	RIPPLE_STACK_SIZE	240
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
@@ -277,7 +282,7 @@ ripple_again:
 	if (bs >= SWAP_BLOCK_MIN) {
 		swap_blk(sp, pb, bs);
 	} else {
-		for (char *ta = sp, *tb = pb; ta < pb; ta += es, tb += es)
+		for (char *ta = sp, *tb = pb; ta != pb; ta += es, tb += es)
 			swap(ta, tb);
 	}
 
@@ -285,17 +290,15 @@ ripple_again:
 	// of the array we're merging into.
 	// PA->SP is one sorted array, and SP->PB is another. PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
-	if ((sp != pa) && is_lt(sp, sp - es)) {
+	if (is_lt(sp, sp - es)) {
 		if (rp != pe)
 			RIPPLE_STACK_PUSH(pb, rp, pe);
 		pe = pb;
 		pb = sp;
 		goto ripple_again;
-	} else {
-		bs = ((rp != pe) && is_lt(rp, rp - es));
 	}
 
-	if (bs) {
+	if ((rp != pe) && is_lt(rp, rp - es)) {
 		pa = pb;
 		pb = rp;
 		goto ripple_again;
@@ -314,133 +317,6 @@ ripple_pop:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-#if 0
-
-// VW points at work space
-// NW is the number of bytes in the workspace
-// vpa is the start of the first array
-// vpb is the start of the second array
-// vpe points immediately after the end of the second array
-// Assumptions:
-// - vpa and vpb are adjacent
-
-// Moves a block from BP->BE such that BE is now at NE (New End)
-// Assumes NE is not within BP->BE
-static void
-move_block_up(char *bp, char *be, char *ne)
-{
-	while (be > bp) {
-		be -= es;
-		ne -= es;
-		swap(be, ne);
-	}
-} // move_block_up
-
-
-// Moves a block from BP->BE such that BP is now at NP (New Pointer)
-// Assumes NP is not within BP->BE
-static void
-move_block_down(char *bp, char *be, char *np)
-{
-	while (bp < be) {
-		swap(bp, np);
-		bp += es;
-		np += es;
-	}
-} // move_block_up
-
-
-static void
-merge_retricted_workspace(void *VW, size_t NW, void *vpa, void *vpb, void *vpe)
-{
-	char	*hwe = (char *)VW + (NW - (NW % es));	// Hard end of workspace
-	char	*wa = (char *)VW;		// Start of A's data in workspace
-	char	*we = wa;			// End of data from A in workspace
-
-	char	*pa = (char *)vpa;		// Start of A's elements
-	char	*ae = pb;			// End of A's elements
-
-	char	*pb = (char *)vpb;		// Start of B's elements
-	char	*pe = (char *)vpe;		// End of A + B
-
-	char	*mp = pa;			// Merge pointer within A+B
-
-	// First skip everything in A that we don't need to copy
-	for ( ; (pa != pb) && !is_lt(pb, pa); pa += es);
-
-	if (pa == ea)	// Nothing to merge
-		return;
-
-	for (int first_time = 1;;) {
-		// Move anything in the workspace down to the start
-		// (but only if it's not already there)
-		if ((wa < we) && (wa > (char *)VW)) {
-			move_block_down(wa, we, (char *)VW);
-			we = (char *VW) + (we - wa);
-			wa = (char *VW);
-		}
-
-		// Copy as much of A into the workspace as we can fit
-		while((we < hwe) && (pa < ea)) {
-			swap(we, pa);
-			we += es;
-			pa += es;
-		}
-
-		// Move A up to be adjacent with B if there's room
-		if ((pa < ae) && (ae < pb)) {
-			move_block_up(pa, ae, pb);
-			pa += (pb - ae);
-			ae = pb;
-		}
-
-		// We already know first *PB is less than *WA
-		if (first_time) {
-			swap(mp, pb);
-			pb += es;
-			mp += es;
-			first_time = 0;
-		}
-
-		// Now merge from B and workspace back into MP
-		while ((wa < we) && (mp < pa) && (pb < pe)) {
-			if (is_lt(pb, wa)) {
-				swap(mp, pb);
-				pb += es;
-			} else {
-				swap(mp, wa);
-				wa += es;
-			}
-			mp += es;
-		}
-
-		// if mp == pa - we merged up as far as we could
-		// if wa == we - we ran out of data in the workspace
-		// If pb == pe - we've already merged all of B
-
-		// Check if we're done merging
-		if (pb < pe)
-			continue;
-
-		// B MUST be empty
-		// Move anything remaining in A to the end
-		if ((pa < ae) && (ae < pb)) {
-			move_block_up(pa, ae, pb);
-			pa += (pb - ae);
-			ae = pb;
-		}
-
-		// Just swap back everything from the work-space into mp
-		if (wa < we)
-			move_block_up(wa, we, pa);
-
-		break;
-	}
-} // merge_retricted_workspace
-
-#endif
-
-
 // Merges A and B together using workspace W
 // Assumes both NA and NB are > zero on entry
 static void
@@ -452,7 +328,7 @@ fim_merge_using_workspace(char *w, char *a, const size_t na, char *b, const size
 	if (!is_lt(b, b - es))
 		return;
 
-	// Skip initial part of A as required
+	// Skip initial part of A if opportunity presents
 	for ( ; (a != b) && !is_lt(b, a); a += es);
 
 	if (a == b)	// Nothing to merge
@@ -525,6 +401,7 @@ fim_sort_using_workspace(char * const ws, const size_t wn, char * const pa, cons
 } // fim_sort_using_workspace
 
 
+// Sort un-stable variant for pure speed
 static void
 fim_sort_main(char * const pa, const size_t n)
 {
@@ -558,14 +435,69 @@ fim_sort_main(char * const pa, const size_t n)
 } // fim_sort_main
 
 
+#if 0
+
+// Classic bottom-up merge sort
+static void
+stable_sort(char *pa, const size_t n)
+{
+#define	STABLE_UNIT_SIZE 10
+
+	// Handle small array size inputs with insertion sort
+	if (n < (STABLE_UNIT_SIZE * 2))
+		return fim_insert_sort(pa, n);
+
+	char	*pe = pa + (n * es);
+	WORD	t;
+
+	do {
+		size_t	bound = n - (n % STABLE_UNIT_SIZE);
+		char	*bpe = pa + (bound * es);
+
+		// First just do insert sorts on all with size STABLE_UNIT_SIZE
+		for (char *pos = pa; pos != bpe; pos += (es * STABLE_UNIT_SIZE)) {
+			char	*stop = pos + (es * STABLE_UNIT_SIZE);
+			for (char *ta = pos + es, *tb; ta != stop; ta += es)
+				for (tb = ta; tb != pos && is_lt(tb, tb - es); tb -= es)
+					swap(tb, tb - es);
+		}
+
+		// Insert sort any remainder
+		if (n - bound)
+			fim_insert_sort(bpe, n - bound);
+	} while (0);
+
+	for (size_t size = STABLE_UNIT_SIZE; size < n; size += size) {
+		char	*stop = pa + ((n - size) * es);
+		for (char *pos1 = pa; pos1 < stop; pos1 += (size * es * 2)) {
+			char *pos2 = pos1 + (size * es);
+			char *pos3 = pos1 + (size * es * 2);
+
+			if (pos3 > pe)
+				pos3 = pe;
+
+			if (pos2 < pe)
+				ripple_merge_in_place(pos1, pos2, pos3);
+		}
+	}
+#undef STABLE_UNIT_SIZE
+} // stable_sort
+
+#else
+
+// Top-down merge sort with a bias to smaller left-side arrays as
+// this appears to help the in-place merge algorithm a little bit
+// This makes it a hair faster than the bottom-up merge
 static void
 stable_sort(char *pa, const size_t n)
 {
 	// Handle small array size inputs with insertion sort
-	if (n <= 16)
+	if (n <= 11)
 		return fim_insert_sort(pa, n);
 
-	size_t	na = (n >> 2) + 1;
+//	size_t	na = n >> 2;
+//	size_t	na = (n * 2) / 5;
+	size_t	na = ((n + 3) * 3) / 10;
 	size_t	nb = n - na;
 	char	*pb = pa + na * es;
 
@@ -575,9 +507,10 @@ stable_sort(char *pa, const size_t n)
 	if (nb > 1)
 		stable_sort(pb, nb);
 
+//	ripple_split_in_place(pa, pb, pa + (n * es));
 	ripple_merge_in_place(pa, pb, pa + (n * es));
 } // stable_sort
-
+#endif
 
 // Designed for efficiently processing smallish sets of items
 // Note that the last item is always assumed to be unique
@@ -637,11 +570,12 @@ extract_uniques(char * const a, const size_t n)
 	size_t	na = (n + 3) >> 2;	// Looks to be about right
 	char	*pb = pa + (na * es);
 
-	// First find where to split at
+	// First find where to split at, which basically means, find the
+	// end of any duplicate run that we may find ourselves in
 	while ((pb < pe) && !is_lt(pb - es, pb))
 		pb += es;
 
-	// If we couldn't find a split, just process what we have
+	// If we couldn't find a sub-split, just process what we have
 	if (pb == pe)
 		return extract_unique_sub(a, pe);
 
@@ -665,7 +599,8 @@ extract_uniques(char * const a, const size_t n)
 
 #define	EXTRACT_UNIQUES		1
 #define	DO_NOT_EXTRACT_UNIQUES	0
-// Workspace ratio is the amount we divide N by. 10-30 is best
+// Workspace ratio is the amount we divide N by.
+// Somewhere between 10 and 30 seems best
 #define	WORKSPACE_RATIO		16
 
 static void
@@ -763,29 +698,6 @@ fim_stable_sort(char * const a, const size_t n, int extract)
 	}
 } // fim_stable_sort
 
-
-static void
-merge_test(char *a, const size_t n)
-{
-	int	mid = n / 2;
-
-	for (int i = 0; i < mid; i++) {
-		char *pos = a + (i * es);
-		*(int *)pos = (int)(i);
-	}
-
-	for (int i = mid; i < n; i++) {
-		char *pos = a + (i * es);
-		*(int *)pos = (int)(i - mid);
-	}
-
-	char	*pa = a;
-	char	*pb = a + (mid * es);
-	char	*pe = a + (n * es);
-
-	ripple_merge_in_place(pa, pb, pe);
-} // merge_test
-
 #pragma GCC diagnostic pop
 
 void
@@ -796,8 +708,8 @@ fim_sort(char *a, const size_t n, const size_t _es, const int (*_is_lt)(const vo
 
 	SWAPINIT(a, es);
 
-//	merge_test(a, n);
 //	fim_sort_main(a, n);
 	fim_stable_sort(a, n, EXTRACT_UNIQUES);
+//	stable_sort(a, n);
 //	print_array(a, n);
 } // fim_sort
