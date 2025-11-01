@@ -497,133 +497,6 @@ fim_merge_using_workspace(char *w, char *a, const size_t na, char *b, const size
 } // fim_merge_using_workspace
 
 
-static char *
-extract_unique_sub(char * const a, const size_t n)
-{
-	char	*pa = a;
-	char	*pe = a + ((n - 1) * es);
-	char	*pu = a;
-	WORD	t;
-
-	fim_insert_sort(a, n);
-
-	// Note that the last item is always desginated
-	// as unique, within the listen given
-	for (char *ta = a; (ta < pe); ta += es) {
-		if (is_lt(ta, ta + es))
-			continue;
-
-		// It is a duplicate.  Move it down
-		for (char *dp = ta; dp > pu; dp -= es)
-			swap(dp, dp - es);
-
-		pu += es;
-	}
-
-	return pu;
-} // extract_unique_sub
-
-
-static char *
-extract_uniques(char * const a, const size_t n)
-{
-	WORD	t;
-
-	if (n < 25)
-		return extract_unique_sub(a, n);
-
-	size_t	na = n / 5;
-	size_t	nb = n - na;
-	char	*pa = a;
-	char	*pb = a + (na * es);
-	char	*pe = a + (n * es);
-
-	char	*upa = extract_uniques(pa, na);
-	char	*upb = extract_uniques(pb, nb);
-	char	*pu = upa;
-
-#if 0
-	printf("PA -> UPA: "); print_array(pa, (upa - pa) / es);
-	printf("UPA -> PB: "); print_array(upa, (pb - upa) / es);
-	printf("PB -> UPB: "); print_array(pb, (upb - pb) / es);
-	printf("UPB -> PE: "); print_array(upb, (pe - upb) / es);
-#endif
-
-	// Now extract uniques from UPA->PB, and PB->UPB
-	for (char *ta = upa, *tb = pb; ta < pb; ta += es) {
-		// Note, convert this to binary scan
-		while ((tb < upb) && is_lt(tb, ta))
-			tb += es;
-
-		if (tb == upb)
-			break;
-
-		if (is_lt(ta, tb))
-			continue;
-
-		// ta is a duplicate of what's at tb
-		for (char *dp = ta; dp > pu; dp -= es)
-			swap(dp, dp - es);
-
-		pu += es;
-	}
-
-	char	*puu = pu;
-
-	for (char *ta = pu, *tb = upb; ta < pb; ta += es) {
-		while ((tb < pe) && is_lt(tb, ta))
-			tb += es;
-
-		if (tb == pe)
-			break;
-
-		if (is_lt(ta, tb))
-			continue;
-
-		for (char *dp = ta; dp > puu; dp -= es)
-			swap(dp, dp - es);
-
-		puu += es;
-	}
-
-#if 0
-	printf("START -> "); print_array(a, n);
-	printf("UPA -> PU: "); print_array(upa, (pu - upa) / es);
-	printf("PU -> PUU: "); print_array(pu, (puu - pu) / es);
-	printf("PUU -> PB: "); print_array(puu, (pb - puu) / es);
-#endif
-
-	// Merge upa -> pu -> puu together
-	if ((pu > upa) && (puu > pu))
-		ripple_merge_in_place(upa, pu, puu);
-
-	// Move our extracted set up uniques up
-	if ((pb > puu) && (upb > pb)) {
-		_swab(puu, pb, upb);
-	}
-	pb = upb - (pb - puu);
-
-	// Merge upa -> puu -> pb together
-	if ((puu > upa) && (pb > puu))
-		ripple_merge_in_place(upa, puu, pb);
-
-	// Merge pa -> upa -> pb together
-	if ((upa > pa) && (pb > upa))
-		ripple_merge_in_place(pa, upa, pb);
-
-	// Merge pb->upb->pe together
-	if ((upb > pb) && (pe > upb))
-		ripple_merge_in_place(pb, upb, pe);
-
-#if 0
-	printf("PA -> PB -> "); print_array(pa, (pb - pa) / es);
-	printf("PB -> PE -> "); print_array(pb, (pe - pb) / es);
-#endif
-
-	return pb;
-} // extract_uniques
-
-
 static void
 fim_sort_using_workspace(char * const ws, const size_t wn, char * const pa, const size_t n)
 {
@@ -684,10 +557,10 @@ fim_sort_main(char * const pa, const size_t n)
 
 
 static void
-simplest(char *pa, const size_t n)
+stable_sort(char *pa, const size_t n)
 {
 	// Handle small array size inputs with insertion sort
-	if (n <= 7)
+	if (n <= 16)
 		return fim_insert_sort(pa, n);
 
 	size_t	na = (n >> 2) + 1;
@@ -695,24 +568,166 @@ simplest(char *pa, const size_t n)
 	char	*pb = pa + na * es;
 
 	if (na > 1)
-		simplest(pa, na);
+		stable_sort(pa, na);
 
 	if (nb > 1)
-		simplest(pb, nb);
+		stable_sort(pb, nb);
 
-//	ripple_split_in_place(pa, pb, pa + n * es);
 	ripple_merge_in_place(pa, pb, pa + (n * es));
-} // simplest
-
-#pragma GCC diagnostic pop
+} // stable_sort
 
 
-static int
-cmp(void *va, void *vb)
+// Designed for efficiently processing smallish sets of items
+// Note that the last item is always assumed to be unique
+static char *
+extract_unique_sub(char * const a, char * const pe)
 {
-	numcmps++;
-	return *(int *)va - *(int *)vb;
-} // cmp
+	char	*pu = a;	// Points to list of unique items
+	WORD	t;
+
+	for (char *pa = a + es; pa < pe; pa += es) {
+		if (is_lt(pa - es, pa))
+			continue;
+
+		// The item before our position is a duplicate
+		// Mark it, and then find the end of the run
+		char *dp = pa - es;
+
+		// Now find the end of the run of duplicates
+		while ((pa < pe) && !is_lt(pa - es, pa))
+			pa += es;
+
+		// pa now points at the item after the run of
+		// duplicates.  Adjust its position
+		pa -= es;
+
+		// Roll the duplicates down
+		if ((pa - dp) > es) {
+			// Multiple items.  swab them down
+			if (pu > a) {
+				_swab(pu, dp, pa);
+			}
+			pu += (pa - dp);
+		} else {
+			// Single item, just ripple it down
+			while (dp > pa) {
+				swap(dp, dp - es);
+				dp -= es;
+			}
+			pu += es;
+		}
+	}
+
+	return pu;
+} // extract_unique_sub
+
+
+// Assumptions:
+// - The list we're passed is already sorted
+static char *
+extract_uniques(char * const a, const size_t n)
+{
+	char	*pe = a + (n * es);
+
+	if (n < 30)
+		return extract_unique_sub(a, pe);
+
+	// Divide and conquer!
+	char	*pa = a;
+	size_t	na = ((n + n) / 5) + 1;
+	char	*pb = pa + (na * es);
+
+	// First find where to split at
+	while ((pb < pe) && !is_lt(pb - es, pb))
+		pb += es;
+
+	// If we couldn't find a split, just process what we have
+	if (pb == pe)
+		return extract_unique_sub(a, pe);
+
+	// Recalculate our size
+	na = (pb - pa) / es;
+	size_t	nb = n - na;
+
+	// Note that there is ALWAYS at least 1 unique to be found
+	char	*apu = extract_uniques(pa, na);
+	char	*bpu = extract_uniques(pb, nb);
+
+	// Coalesce non-uniques together
+	if (bpu > pb) {
+		_swab(apu, pb, bpu);
+	}
+	pb = apu + (bpu - pb);
+
+	// PA->BP now contains non-uniques and BP->PE are uniques
+	return pb;
+} // extract_uniques
+
+
+static void
+fim_stable_sort(char * const a, const size_t n, int extract)
+{
+	if (n <= 1000)
+		return stable_sort(a, n);
+
+	size_t	na, nr, nw;
+	char	*ws, *pr;
+	
+	if (extract) {
+		na = n / 10;
+		nr = n - na;
+		pr = a + (na * es);	// Pointer to rest
+
+		stable_sort(a, na);
+//	printf("Before extract uniques: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
+		ws = extract_uniques(a, na);
+//	printf("After extract uniques: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
+
+		nw = (pr - ws) / es;
+		na = na - nw;
+	} else {
+		na = 0;
+		nw = n / 5;
+		ws = a;
+		nr = n - nw;
+		pr = a + (nw * es);	// Pointer to rest
+	}
+
+
+//	printf("NA = %ld, NW = %ld, NR = %ld\n", na, nw, nr);
+
+	// Okay, so A->WS is a set of sorted non-uniques
+	// WS->REST is a set of uniques we can use as workspace
+	// REST->PE is everything else
+
+	// Fall-back to vanilla stable-sort if can't get enough workspace
+	if ((nw * 20) < nr) {
+//		printf("Falling back to stable-sort\n");
+		stable_sort(pr, nr);
+	} else {
+//		printf("Sorting using workspace\n");
+		fim_sort_using_workspace(ws, nw, pr, nr);
+	}
+
+	// Now sort our work-space
+	fim_stable_sort(ws, nw, 0);
+
+	if (na > nw) {
+		// Merge our work-space with the rest
+		ripple_merge_in_place(ws, pr, a + (n * es));
+
+		// Merge our non-uniques with the rest
+		if (na > 0)
+			ripple_merge_in_place(a, ws, a + (n * es));
+	} else {
+		// Merge our non-uniques with our workspace
+		if (na > 0)
+			ripple_merge_in_place(a, ws, pr);
+
+		// Now merge the lot together
+		ripple_merge_in_place(a, pr, a + (n * es));
+	}
+} // fim_stable_sort
 
 
 static void
@@ -734,9 +749,10 @@ merge_test(char *a, const size_t n)
 	char	*pb = a + (mid * es);
 	char	*pe = a + (n * es);
 
-//	qsort(a, n, es, cmp);
 	ripple_merge_in_place(pa, pb, pe);
 } // merge_test
+
+#pragma GCC diagnostic pop
 
 void
 fim_sort(char *a, const size_t n, const size_t _es, const int (*_is_lt)(const void *, const void *))
@@ -748,9 +764,8 @@ fim_sort(char *a, const size_t n, const size_t _es, const int (*_is_lt)(const vo
 
 //	print_array(a, n);
 
-//	extract_uniques(a, n);
 //	merge_test(a, n);
 //	fim_sort_main(a, n);
-	simplest(a, n);
+	fim_stable_sort(a, n, 1);
 //	print_array(a, n);
 } // fim_sort
