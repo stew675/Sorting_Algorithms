@@ -107,16 +107,16 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 static void
 ripple_split_in_place(char *pa, char *pb, char *pe)
 {
-	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE * 2];
+	alignas(64) char *_stack[RIPPLE_STACK_SIZE * 2];
 	char	**stack = _stack;
 	size_t	bs, condition;
 	WORD	t;		// Temporary variable for swapping
 
 	// For whoever calls us, check if we need to do anything at all
 	if (!is_lt(pb, pb - es))
-		goto ripple_pop;
+		goto split_pop;
 
-ripple_again:
+split_again:
 	bs = pb - pa;		// Determine the byte-wise size of A
 
 	// Just insert merge single items. We already know that *PB < *PA
@@ -124,7 +124,7 @@ ripple_again:
 		do {
 			swap(pa, pb);  pa = pb;  pb += es;
 		} while (pb != pe && is_lt(pb, pa));
-		goto ripple_pop;
+		goto split_pop;
 	}
 
 	// Ripple the PA->PB block up as far as we can
@@ -162,21 +162,21 @@ ripple_again:
 			*stack++ = pa;  *stack++ = spa;
 		}
 		pa = spa;
-		goto ripple_again;
+		goto split_again;
 	}
 
-ripple_pop:
+split_pop:
 	while (stack != _stack) {
 		pb = *--stack;  pa = *--stack;
 
 		if (is_lt(pb, pb - es))
-			goto ripple_again;
+			goto split_again;
 	}
 } // ripple_split_in_place
 
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
-	{ assert((stack - _stack) < 1440); *stack++ = s1; *stack++ = s2; *stack++ = s3; }
+	{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
 
 #define	RIPPLE_STACK_POP(s1, s2, s3) \
 	{ s3 = *--stack; s2 = *--stack; s1 = *--stack; }
@@ -186,17 +186,26 @@ ripple_pop:
 static void
 ripple_merge_in_place(char *pa, char *pb, char *pe)
 {
-	__attribute__((aligned(64))) char *_stack[RIPPLE_STACK_SIZE * 6];
-	char	**stack = _stack;
+	alignas(64) char *_stack[RIPPLE_STACK_SIZE * 3];
+	char	**maxstack, **stack = _stack;
 	char	*rp, *sp;	// Ripple-Pointer, and Split Pointer
 	size_t	bs;		// Byte-wise block size of pa->pb
 	WORD	t;		// Temporary variable for swapping
+
+	maxstack = _stack + (sizeof(_stack) / sizeof(*_stack));
 
 	// For whoever calls us, check if we need to do anything at all
 	if (!is_lt(pb, pb - es))
 		goto ripple_pop;
 
 ripple_again:
+	// If our stack is about to over-flow, move to use the slower, but more
+	// resilient, algorithm that handles degenerate scenarios without issue
+	if (stack == maxstack) {
+		ripple_split_in_place(pa, pb, pe);
+		goto ripple_pop;
+	}
+
 	bs = pb - pa;
 
 	// Just insert merge single items. We already know that *PB < *PA
@@ -242,23 +251,9 @@ ripple_again:
 	if (rp > pe) {
 		if (pb == pe)
 			goto ripple_pop;
-#if 1
-		// Use the (slower) ripple_split_in_place()
-		// algorithm to handle degenerate scenarios
-		if (bs > ((pe - pb) << 6)) {
-//print_array(pb - (50 * es), ((pe - pb) / es) + 50);
-//printf("abs = %ld, ebs = %ld\n", (pb - pa) / es, (pe - pb) / es);
-//			insertion_merge_in_place(pa, pb, pe);
-//print_array(pb - (50 * es), ((pe - pb) / es) + 50);
-//printf("abs = %ld, ebs = %ld\n", (pb - pa) / es, (pe - pb) / es);
-			ripple_split_in_place(pa, pb, pe);
-			goto ripple_pop;
-		}
-#endif
-		// Adjust the pointers for the new limits
-		rp = pe;
-		bs = rp - pb;
+		bs = pe - pb; // Adjust the block size for the end limit
 	}
+
 	// Find spot within PA->PB to split it at
 	if (bs > (es << 3)) {	// Binary search on larger sets
 		size_t	min = 0, max = bs / es;
@@ -278,7 +273,7 @@ ripple_again:
 			rp = pb + (sn * es);
 		}
 	} else {	// Linear scan is faster for smaller sets
-		sp = pb - bs;
+		sp = pb - bs;	rp = pb + bs;
 		for ( ; (sp != pb) && !is_lt(rp - es, sp); sp += es, rp -= es);
 	}
 
@@ -297,7 +292,7 @@ ripple_again:
 	// of the array we're merging into.
 	// PA->SP is one sorted array, and SP->PB is another. PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
-	if (is_lt(sp, sp - es)) {
+	if ((sp != pa) && is_lt(sp, sp - es)) {
 		if (rp != pe)
 			RIPPLE_STACK_PUSH(pb, rp, pe);
 		pe = pb;
@@ -306,6 +301,7 @@ ripple_again:
 	} else {
 		bs = ((rp != pe) && is_lt(rp, rp - es));
 	}
+
 	if (bs) {
 		pa = pb;
 		pb = rp;
