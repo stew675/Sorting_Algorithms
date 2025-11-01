@@ -23,7 +23,7 @@ static	size_t	rsd = 0, mrsd = 0;
 static void
 swap_blk(char *a, char *b, size_t n)
 {
-	__attribute__((aligned(64))) char t[1024];
+	_Alignas(64) char t[1024];
 
 	do {
 		size_t	tc = n > 1024 ? 1024 : n;
@@ -97,24 +97,27 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb, char * restrict
 			tb = tb + es;
 		} while ((tb != pe) && is_lt(tb + es, tb));
 	} while ((pb != pa) && is_lt(pb, pb - es));
-} // insert_merge_in_place
+} // insertion_merge_in_place
 
 
-// A stack size of 240 is enough to merge 10^14 items into another array
-#define	RIPPLE_STACK_SIZE	240
+// Stack size needs to be 16 * log16(N), where N is the size of the block
+// being merged. 80 covers 10^6 items. 160 covers 10^12 items.  240 is 10^18
+#define	SPLIT_STACK_SIZE	160
 
-// Assumes NA and NB are greater than zero
 static void
 ripple_split_in_place(char *pa, char *pb, char *pe)
 {
-	alignas(64) char *_stack[RIPPLE_STACK_SIZE * 2];
+	_Alignas(64) char *_stack[SPLIT_STACK_SIZE * 2];
 	char	**stack = _stack;
-	size_t	bs, condition;
-	WORD	t;		// Temporary variable for swapping
+	size_t	split_size, bs;
+	WORD	t;	// Temporary variable for swapping
 
 	// For whoever calls us, check if we need to do anything at all
 	if (!is_lt(pb, pb - es))
 		goto split_pop;
+
+	// Determine our initial split size.  Ensure a minimum of 1 element
+	split_size = ((((pb - pa) / es) + 15) >> 4) * es;
 
 split_again:
 	bs = pb - pa;		// Determine the byte-wise size of A
@@ -123,44 +126,31 @@ split_again:
 	if (bs == es) {
 		do {
 			swap(pa, pb);  pa = pb;  pb += es;
-		} while (pb != pe && is_lt(pb, pa));
+		} while ((pb != pe) && is_lt(pb, pa));
 		goto split_pop;
 	}
 
-	// Ripple the PA->PB block up as far as we can
-	{	char	*rp = pb + bs;
-		condition = ((rp < pe) && is_lt(rp - es, pa));
-
-		while (condition) {
-			if (bs < SWAP_BLOCK_MIN) {
-				for ( ; pb < rp; pa += es, pb += es)
-					swap(pa, pb);
-			} else {
-				swap_blk(pa, pb, bs);
-				pa = pb;     pb = rp;
-			}
-			rp += bs;
-			condition = ((rp < pe) && is_lt(rp - es, pa));
+	// Advance the PA->PB block up as far as we can
+	for (char *rp = pb + bs; (rp < pe) && is_lt(rp - es, pa); rp += bs)
+		if (bs < SWAP_BLOCK_MIN) {
+			for ( ; pb < rp; pa += es, pb += es)
+				swap(pa, pb);
+		} else {
+			swap_blk(pa, pb, bs);
+			pa = pb;     pb = rp;
 		}
-	}
 
 	// Split the A block into two, and keep trying with remainder
 	// The imbalanced split here improves algorithmic performance.
-	// Division is slow.  Calculate the following ahead of time
-	bs = (bs / (es << 3)) + 1;	// How much to split off of A
-	// Determine if the split was rejected and if we can coalesce
-	// the rejected split with the split point on the work stack
-	condition = ((stack != _stack) && (*(stack - 1) == pa));
 	if (is_lt(pb, pb - es)) {
-		char	*spa = pa + (bs * es);
+		char	*spa = pa + split_size;
 
-		if (condition) {
-			// Coalesce a rejected split with work stack
-			*(stack - 1) = spa;
-		} else {
-			// Push a new split point to the work stack
-			*stack++ = pa;  *stack++ = spa;
-		}
+		// Keep our split point within limits
+		spa = (spa > (pb - es)) ? (pb - es) : spa;
+
+		// Push a new split point to the work stack
+		*stack++ = pa;  *stack++ = spa;
+
 		pa = spa;
 		goto split_again;
 	}
@@ -168,12 +158,14 @@ split_again:
 split_pop:
 	while (stack != _stack) {
 		pb = *--stack;  pa = *--stack;
+		split_size = ((((pb - pa) / es) + 15) >> 4) * es;
 
 		if (is_lt(pb, pb - es))
 			goto split_again;
 	}
 } // ripple_split_in_place
 
+#define	RIPPLE_STACK_SIZE	240
 
 #define	RIPPLE_STACK_PUSH(s1, s2, s3) 	\
 	{ *stack++ = s1; *stack++ = s2; *stack++ = s3; }
@@ -686,6 +678,7 @@ fim_sort_main(char * const pa, const size_t n)
 //	printf("After Merge: Num Compares = %ld, Num Swaps = %ld\n\n", numcmps, numswaps);
 
 	// Now ripple merge A with B
+//	ripple_split_in_place(pa, pb, pa + n * es);
 	ripple_merge_in_place(pa, pb, pa + n * es);
 } // fim_sort_main
 
@@ -707,6 +700,7 @@ simplest(char *pa, const size_t n)
 	if (nb > 1)
 		simplest(pb, nb);
 
+//	ripple_split_in_place(pa, pb, pa + n * es);
 	ripple_merge_in_place(pa, pb, pa + (n * es));
 } // simplest
 
@@ -756,7 +750,7 @@ fim_sort(char *a, const size_t n, const size_t _es, const int (*_is_lt)(const vo
 
 //	extract_uniques(a, n);
 //	merge_test(a, n);
-	fim_sort_main(a, n);
-//	simplest(a, n);
+//	fim_sort_main(a, n);
+	simplest(a, n);
 //	print_array(a, n);
 } // fim_sort
