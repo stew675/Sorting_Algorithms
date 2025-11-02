@@ -37,7 +37,7 @@ extern	uint64_t	numcmps;
 // there's a trade-off between spending more time digging out uniques, as
 // opposed to just using what we can find.  A good value appears to be anywhere
 // from 1.5x to 3x of what WSRATIO is set to,
-#define	STABLE_WSRATIO		18
+#define	STABLE_WSRATIO		19
 
 // Swaps two contiguous blocks of differing lengths in place efficiently
 // Basically implements the well known block Rotate() functionality
@@ -634,7 +634,7 @@ static void
 fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 {
 	bool	sorted = false;
-	int	num_tries = 2;
+	int	num_tries = 19;	// This 19 here is experimentally derived
 	size_t	na, nr, nw;
 	char	*ws, *pr;
 
@@ -642,9 +642,15 @@ fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 	if (n <= 40)
 		return stable_sort(pa, n, COMMON_ARGS);
 
-	na = n / STABLE_WSRATIO;
+	// We start with a workspace candidate size that is 1.1x whatever
+	// the STABLE_WSRATIO is asking for.  This allows for up to a 10%
+	// duplicate ratio on the first attempt before we try harder
+
+	na = ((n * 10) / 9) / STABLE_WSRATIO;
 	nr = n - na;
 	pr = pa + (na * es);	// Pointer to rest
+
+	size_t	wstarget = nr / STABLE_WSRATIO;
 
 	// First sort our candidate work-space chunk
 	stable_sort(pa, na, COMMON_ARGS);
@@ -653,42 +659,56 @@ fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 	nw = (pr - ws) / es;
 	na = na - nw;
 
-	// A->WS  is pointing at non-uniques
+	// PA->WS is pointing at (sorted) non-uniques
 	// WS->PR is a set of uniques we can use as workspace
 	// PR->PE is everything else that we still need to sort
 
-	// If we didn't get enough work-space, we'll try twice more
-	// before giving up and falling back to stable_sort
-	// We'll give up immediately if we couldn't even find 1%
-	while (((nw * STABLE_WSRATIO * 12) >> 3) < nr) {
-		if ((num_tries-- <= 0) || ((nw * 100) < nr)) {
-			// Give up and fall back to old faithful
+	// If we couldn't find enough work-space we'll try up to num_tries
+	// more.  Despite this seeming excessive, with each try we're still
+	// sorting more of the array any way, so it sort of balances out.
+	// It works out that we give up at above a 99.4% duplicate rate
+	while (nw < wstarget) {
+//		printf("Not enough workspace. Wanted: %ld  Got: %ld  "
+//		       "Duplicates: %ld\n", wstarget, nw, (ws - pa) / es);
+
+		if (num_tries-- <= 0) {
+			// Give up and fall back to good old stable_sort()
+//			printf("Giving up!\n");
 			stable_sort(pr, nr, COMMON_ARGS);
 			sorted = true;
 			break;
 		}
 
-//		printf("Not enough workspace - Trying harder\n");
-		size_t	nna = nr / 9;
+		// Use whatever workspace we have, to try to find more
 		char	*nws = pr;
+		size_t	nna = nw * 8;	// This 8 is experimentally derived
+
+		if (nna > (nr / 4))
+			nna = nr / 4;
+
 		nr -= nna;
 		pr = pr + (nna * es);
 
-		// Sort new work-space candidate
-		stable_sort(nws, nna, COMMON_ARGS);
+		// Sort new work-space candidate with our current workspace
+		fim_base_sort(nws, nna, ws, nw, COMMON_ARGS);
 
-		// Merge old workspace with new
+		// Our current work-space is now jumbled, so sort that too
+		fim_base_sort(ws, nw, NULL, 0, COMMON_ARGS);
+
+		// Merge current workspace with the new set
 		ripple_merge_in_place(ws, nws, pr, COMMON_ARGS);
 
-		// We may have picked up new duplicates.  Separate them
+		// We may have picked up new duplicates.  Separate them out
 		nws = extract_uniques(ws, nw + nna, NULL, COMMON_ARGS);
 
-		// Merge original duplicates with new ones
+		// Merge original duplicates with new ones.  We're essentially
+		// sorting the array by extracting duplicates!
 		if ((nws > ws) && (ws > pa))
 			ripple_merge_in_place(pa, ws, nws, COMMON_ARGS);
 
 		ws = nws;
 		nw = (pr - ws) / es;
+		wstarget = nr / STABLE_WSRATIO;
 	}
 
 	if (!sorted) {
