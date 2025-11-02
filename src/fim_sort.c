@@ -540,14 +540,16 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 // Note that the last item is always assumed to be unique
 // TODO - give hints from caller for existing duplicate runs
 static char *
-extract_unique_sub(char * const a, char * const pe, char *hints, COMMON_PARAMS)
+extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 {
 	char	*pu = a;	// Points to list of unique items
 	WORD	t;
 
-	if (hints == NULL)
-		hints = pe;
+	// Sanitize our hints pointer
+	if (ph == NULL)
+		ph = pe;
 
+	// Process everything up to the hints pointer
 	for (char *pa = a + es; pa < pe; pa += es) {
 		if (is_lt(pa - es, pa))
 			continue;
@@ -592,7 +594,7 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 
 	// I'm not sure what a good value should be here, but 40 seems okay
 	if (n < 40)
-		return extract_unique_sub(a, pe, NULL, COMMON_ARGS);
+		return extract_unique_sub(a, pe, hints, COMMON_ARGS);
 
 	if (hints == NULL)
 		hints = pe;
@@ -602,6 +604,8 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 	size_t	na = (n + 3) >> 2;	// Looks to be about right
 	char	*pb = pa + (na * es);
 
+	char	*ps = pb;	// Records original intended split point
+
 	// First find where to split at, which basically means, find the
 	// end of any duplicate run that we may find ourselves in
 	while ((pb < pe) && !is_lt(pb - es, pb))
@@ -609,14 +613,14 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 
 	// If we couldn't find a sub-split, just process what we have
 	if (pb == pe)
-		return extract_unique_sub(a, pe, NULL, COMMON_ARGS);
+		return extract_unique_sub(a, pe, ps, COMMON_ARGS);
 
 	// Recalculate our size
 	na = (pb - pa) / es;
 	size_t	nb = n - na;
 
 	// Note that there is ALWAYS at least one unique to be found
-	char	*apu = extract_uniques(pa, na, NULL, COMMON_ARGS);
+	char	*apu = extract_uniques(pa, na, ps, COMMON_ARGS);
 	char	*bpu = extract_uniques(pb, nb, NULL, COMMON_ARGS);
 
 	// Coalesce non-uniques together
@@ -759,9 +763,12 @@ fim_sort(char *a, const size_t n, const size_t es,
 	SWAPINIT(a, es);
 
 //	stable_sort(a, n, COMMON_ARGS);
-//	fim_base_sort(a, n, ws, nw, COMMON_ARGS);
-	fim_stable_sort(a, n, COMMON_ARGS);
-//	print_array(a, n);
-	if (ws)
+	if (ws) {
+		fim_base_sort(a, n, ws, nw, COMMON_ARGS);
 		free(ws);
+	} else {
+//		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
+		fim_stable_sort(a, n, COMMON_ARGS);
+	}
+//	print_array(a, n);
 } // fim_sort
