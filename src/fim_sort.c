@@ -31,6 +31,14 @@ extern	uint64_t	numcmps;
 // Using 3 would mirror a closest approximation of classic merge sort
 #define	WSRATIO			9
 
+// STABLE_WSRATIO controls the behaviour of the stable sorting "front end" to
+// the main algorithm.  It has to dig out unique values from the sort space
+// to use as a workspace for the main algorithm.  Since doing so isn't "free"
+// there's a trade-off between spending more time digging out uniques, as
+// opposed to just using what we can find.  A good value appears to be anywhere
+// from 1.5x to 3x of what WSRATIO is set to,
+#define	STABLE_WSRATIO		18
+
 // Swaps two contiguous blocks of differing lengths in place efficiently
 // Basically implements the well known block Rotate() functionality
 // Takes advantage of any vectorization in the optimized memcpy library functions
@@ -621,10 +629,6 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 	return pb;
 } // extract_uniques
 
-
-// Workspace ratio is the amount we divide N by
-// Somewhere between 10 and 30 seems best
-#define	STABLE_WSRATIO		16
 
 static void
 fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
