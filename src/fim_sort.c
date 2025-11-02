@@ -14,12 +14,27 @@ extern	uint64_t	numcmps;
 #define	COMMON_PARAMS	const size_t es, const int swaptype, const int (*is_lt)(const void *, const void *)
 #define	COMMON_ARGS	es, swaptype, is_lt
 
-#define	INSERT_SORT_MAX		  9
-#define	SWAP_BLOCK_MIN		256
+// INSERT_SORT_MAX defines the number of items below which we'll resort to
+// simply using Insertion Sort.  Anything from 8-30 seems reasonable, with
+// values around 20+ giving best speeds at the expense of more swaps/compares
+#define	INSERT_SORT_MAX		24
+
+// SKEW defines the split ratio when doing top-down division of the array
+// A SKEW of 2 is classic merge sort, which is likely best for larger element sizes
+// A SKEW of 4 appears to be cache optimal for smaller (<16 bytes) element sizes
+// SKEW values higher than 5 appear to degrade performance regardless
+#define	SKEW			4
+
+// WSRATIO defines the split ratio when choosing how much of the array to
+// use as a makeshift workspace when no workspace is provided
+// Experimentally anything from 3-20 works okay, but 9 appears optimal
+// Using 3 would mirror a closest approximation of classic merge sort
+#define	WSRATIO			9
 
 // Swaps two contiguous blocks of differing lengths in place efficiently
 // Basically implements the well known block Rotate() functionality
 // Takes advantage of any vectorization in the optimized memcpy library functions
+#define	SWAP_BLOCK_MIN		256
 static void
 swap_blk(char *a, char *b, size_t n)
 {
@@ -379,26 +394,27 @@ fim_merge_using_workspace(char *a, const size_t na, char *b, const size_t nb,
 
 
 // Base merge-sort algorithm - I'm all 'bout that speed baby!
-// NOTE - Using a pre-allocated work-space makes this algorithm sort-stable
+// It logically follows that if this is given unique items to sort
+// then the result will naturally yield a sort-stable result
 static void
-fim_base_sort(char * const a, const size_t n, char * const ws,
+fim_base_sort(char * const pa, const size_t n, char * const ws,
 	      const size_t nw, COMMON_PARAMS)
 {
 	// Handle small array size inputs with insertion sort
-	if (n <= 20)
-		return fim_insert_sort(a, n, COMMON_ARGS);
-
-	// The RippleSort Algorithm works best when rippling in arrays
-	// that are 1/4 the size of the target array.
+	if ((n <= INSERT_SORT_MAX) || (n < 8))
+		return fim_insert_sort(pa, n, COMMON_ARGS);
 
 	if (ws) {
-		// Use the work-space given to us
+		// The RippleSort Algorithm works best when rippling in arrays
+		// that are roughly 1/4 the size of the target array.
+		// The ratio is controlled by the SKEW #define
+		size_t	na = (n / (SKEW));
 
-		// 1/4 appears to work best, but feel free to experiment
-		char	*pa = a;
-		size_t	na = n >> 2;
+		// Enforce a sensible minimum
+		if (na < 4)
+			na = 4;
 
-		// Make sure we don't exceed available workspace
+		// Make sure we don't exceed the given available workspace
 		if (na > nw)
 			na = nw;
 
@@ -414,31 +430,30 @@ fim_base_sort(char * const a, const size_t n, char * const ws,
 		// Now merge A with B
 		fim_merge_using_workspace(pa, na, pb, nb, ws, nw, COMMON_ARGS);
 	} else {
-		// We have to carve out our own workspace
-		char	*pa = a;
-		size_t	na = n / 10;
+		// 9 appears to be close to optimal, but anything from 3-20 works
+		size_t	na = n / WSRATIO;
 
-		if (na < 9)
-			na = 9;
+		// Enforce a sensible minimum
+		if (na < 4)
+			na = 4;
 
-		size_t	nb = n - na;
 		char	*pb = pa + (na * es);
+		size_t	nb = n - na;
 
-		// Sort B using A as workspace
+		// Sort B using A as the workspace
 		fim_base_sort(pb, nb, pa, na, COMMON_ARGS);
 
-		// Now sort the workspace
+		// Now recursively sort what we used as work-space
 		fim_base_sort(pa, na, NULL, 0, COMMON_ARGS);
 
-		// Now ripple merge A with B
+		// Now merge them together
 //		split_merge_in_place(pa, pb, pa + n * es);
-		ripple_merge_in_place(pa, pb, pa + n * es, COMMON_ARGS);
+		ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
 	}
 } // fim_base_sort
 
 
 #if 0
-
 // Classic bottom-up merge sort
 static void
 stable_sort(char *pa, const size_t n, COMMON_PARAMS)
@@ -446,7 +461,7 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 #define	STABLE_UNIT_SIZE 10
 
 	// Handle small array size inputs with insertion sort
-	if (n < (STABLE_UNIT_SIZE * 2))
+	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)));
 		return fim_insert_sort(pa, n, COMMON_ARGS);
 
 	char	*pe = pa + (n * es);
@@ -494,12 +509,10 @@ static void
 stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 {
 	// Handle small array size inputs with insertion sort
-	if (n <= 11)
+	if ((n <= INSERT_SORT_MAX) || (n < 8))
 		return fim_insert_sort(pa, n, COMMON_ARGS);
 
-//	size_t	na = n >> 2;
-//	size_t	na = (n * 2) / 5;
-	size_t	na = ((n + 3) * 3) / 10;
+	size_t	na = n / SKEW;
 	size_t	nb = n - na;
 	char	*pb = pa + na * es;
 
@@ -609,55 +622,30 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 } // extract_uniques
 
 
-// Here we recursively use the work-space to sort itself
-static void
-fim_re_sort_workspace(char * const pa, const size_t n, COMMON_PARAMS)
-{
-	// Handle small array size inputs with insertion sort
-	if (n <= 11)
-		return fim_insert_sort(pa, n, COMMON_ARGS);
-
-	size_t	na = n / 10;
-	char	*pb = pa + (na * es);
-	size_t	nb = n - na;
-
-	fim_base_sort(pb, nb, pa, na, COMMON_ARGS);
-
-	// Now re-sort what we used as work-space
-	fim_re_sort_workspace(pa, na, COMMON_ARGS);
-
-	// Now merge them together
-	ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
-} // fim_re_sort_workspace
-
-
-#define	EXTRACT_UNIQUES		1
-#define	DO_NOT_EXTRACT_UNIQUES	0
-// Workspace ratio is the amount we divide N by.
+// Workspace ratio is the amount we divide N by
 // Somewhere between 10 and 30 seems best
-#define	WORKSPACE_RATIO		16
+#define	STABLE_WSRATIO		16
 
 static void
-fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
+fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 {
 	bool	sorted = false;
 	int	num_tries = 2;
 	size_t	na, nr, nw;
 	char	*ws, *pr;
 
-	// Okay, so A->WS is a set of sorted non-uniques
 	// 40 items appears to be the cross-over
 	if (n <= 40)
-		return stable_sort(a, n, COMMON_ARGS);
+		return stable_sort(pa, n, COMMON_ARGS);
 
-	na = n / WORKSPACE_RATIO;
+	na = n / STABLE_WSRATIO;
 	nr = n - na;
-	pr = a + (na * es);	// Pointer to rest
+	pr = pa + (na * es);	// Pointer to rest
 
 	// First sort our candidate work-space chunk
-	stable_sort(a, na, COMMON_ARGS);
+	stable_sort(pa, na, COMMON_ARGS);
 
-	ws = extract_uniques(a, na, NULL, COMMON_ARGS);
+	ws = extract_uniques(pa, na, NULL, COMMON_ARGS);
 	nw = (pr - ws) / es;
 	na = na - nw;
 
@@ -668,7 +656,7 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 	// If we didn't get enough work-space, we'll try twice more
 	// before giving up and falling back to stable_sort
 	// We'll give up immediately if we couldn't even find 1%
-	while (((nw * WORKSPACE_RATIO * 12) >> 3) < nr) {
+	while (((nw * STABLE_WSRATIO * 12) >> 3) < nr) {
 		if ((num_tries-- <= 0) || ((nw * 100) < nr)) {
 			// Give up and fall back to old faithful
 			stable_sort(pr, nr, COMMON_ARGS);
@@ -692,8 +680,8 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 		nws = extract_uniques(ws, nw + nna, NULL, COMMON_ARGS);
 
 		// Merge original duplicates with new ones
-		if ((nws > ws) && (ws > a))
-			ripple_merge_in_place(a, ws, nws, COMMON_ARGS);
+		if ((nws > ws) && (ws > pa))
+			ripple_merge_in_place(pa, ws, nws, COMMON_ARGS);
 
 		ws = nws;
 		nw = (pr - ws) / es;
@@ -703,24 +691,27 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 		// Sort the remainder using the workspace we extracted
 		fim_base_sort(pr, nr, ws, nw, COMMON_ARGS);
 
-		// Now re-sort our work-space.
-		fim_re_sort_workspace(ws, nw, COMMON_ARGS);
+		// Now re-sort our work-space.  The result will be
+		// sort stable because we're sorting all uniques
+		fim_base_sort(ws, nw, NULL, 0, COMMON_ARGS);
 	}
+
+	char	*pe = pa + (n * es);
 
 	if (na > nw) {
 		// Merge our work-space with the rest
-		ripple_merge_in_place(ws, pr, a + (n * es), COMMON_ARGS);
+		ripple_merge_in_place(ws, pr, pe, COMMON_ARGS);
 
 		// Merge our non-uniques with the rest
 		if (na > 0)
-			ripple_merge_in_place(a, ws, a + (n * es), COMMON_ARGS);
+			ripple_merge_in_place(pa, ws, pe, COMMON_ARGS);
 	} else {
 		// Merge our non-uniques with our workspace
 		if (na > 0)
-			ripple_merge_in_place(a, ws, pr, COMMON_ARGS);
+			ripple_merge_in_place(pa, ws, pr, COMMON_ARGS);
 
 		// Now merge the lot together
-		ripple_merge_in_place(a, pr, a + (n * es), COMMON_ARGS);
+		ripple_merge_in_place(pa, pr, pe, COMMON_ARGS);
 	}
 } // fim_stable_sort
 
@@ -731,12 +722,22 @@ void
 fim_sort(char *a, const size_t n, const size_t es,
 	 const int (*is_lt)(const void *, const void *))
 {
-	int	swaptype;
+#if 0
+	// 8 appears to be optimal
+	size_t	nw = n / 8;
+	char	*ws = malloc(nw * es);
+#else
+	size_t	nw = 0;
+	char	*ws = NULL;
+#endif
 
+	int	swaptype;
 	SWAPINIT(a, es);
 
 //	stable_sort(a, n, COMMON_ARGS);
-//	fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
+//	fim_base_sort(a, n, ws, nw, COMMON_ARGS);
 	fim_stable_sort(a, n, COMMON_ARGS);
 //	print_array(a, n);
+	if (ws)
+		free(ws);
 } // fim_sort
