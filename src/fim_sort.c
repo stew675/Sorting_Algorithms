@@ -108,7 +108,7 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb,
 #define	SPLIT_SIZE		(((((pb - pa) / es) + 15) >> 4) * es)
 
 static void
-ripple_split_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
+split_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
 {
 	_Alignas(64) char *_stack[SPLIT_STACK_SIZE * 2];
 	char	**stack = _stack, *rp, *spa;
@@ -168,7 +168,7 @@ split_pop:
 			goto split_again;
 		}
 	}
-} // ripple_split_in_place
+} // split_merge_in_place
 
 // 1 work stack position holds 3 pointers (24 bytes on 64-bit machines)
 #define	RIPPLE_STACK_SIZE	240
@@ -200,7 +200,7 @@ ripple_again:
 	// If our stack is about to over-flow, move to use the slower, but more
 	// resilient, algorithm that handles degenerate scenarios without issue
 	if (stack == maxstack) {
-		ripple_split_in_place(pa, pb, pe, COMMON_ARGS);
+		split_merge_in_place(pa, pb, pe, COMMON_ARGS);
 		goto ripple_pop;
 	}
 
@@ -431,7 +431,7 @@ fim_base_sort(char * const a, const size_t n, char * const ws,
 		fim_base_sort(pa, na, NULL, 0, COMMON_ARGS);
 
 		// Now ripple merge A with B
-//		ripple_split_in_place(pa, pb, pa + n * es);
+//		split_merge_in_place(pa, pb, pa + n * es);
 		ripple_merge_in_place(pa, pb, pa + n * es, COMMON_ARGS);
 	}
 } // fim_base_sort
@@ -509,7 +509,7 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 	if (nb > 1)
 		stable_sort(pb, nb, COMMON_ARGS);
 
-//	ripple_split_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
+//	split_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
 	ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
 } // stable_sort
 #endif
@@ -519,10 +519,13 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 // Note that the last item is always assumed to be unique
 // TODO - give hints from caller for existing duplicate runs
 static char *
-extract_unique_sub(char * const a, char * const pe, COMMON_PARAMS)
+extract_unique_sub(char * const a, char * const pe, char *hints, COMMON_PARAMS)
 {
 	char	*pu = a;	// Points to list of unique items
 	WORD	t;
+
+	if (hints == NULL)
+		hints = pe;
 
 	for (char *pa = a + es; pa < pe; pa += es) {
 		if (is_lt(pa - es, pa))
@@ -560,14 +563,18 @@ extract_unique_sub(char * const a, char * const pe, COMMON_PARAMS)
 
 // Assumptions:
 // - The list we're passed is already sorted
+// TODO - give hints from caller for existing duplicate runs
 static char *
-extract_uniques(char * const a, const size_t n, COMMON_PARAMS)
+extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 {
 	char	*pe = a + (n * es);
 
 	// I'm not sure what a good value should be here, but 40 seems okay
 	if (n < 40)
-		return extract_unique_sub(a, pe, COMMON_ARGS);
+		return extract_unique_sub(a, pe, NULL, COMMON_ARGS);
+
+	if (hints == NULL)
+		hints = pe;
 
 	// Divide and conquer!
 	char	*pa = a;
@@ -581,15 +588,15 @@ extract_uniques(char * const a, const size_t n, COMMON_PARAMS)
 
 	// If we couldn't find a sub-split, just process what we have
 	if (pb == pe)
-		return extract_unique_sub(a, pe, COMMON_ARGS);
+		return extract_unique_sub(a, pe, NULL, COMMON_ARGS);
 
 	// Recalculate our size
 	na = (pb - pa) / es;
 	size_t	nb = n - na;
 
 	// Note that there is ALWAYS at least one unique to be found
-	char	*apu = extract_uniques(pa, na, COMMON_ARGS);
-	char	*bpu = extract_uniques(pb, nb, COMMON_ARGS);
+	char	*apu = extract_uniques(pa, na, NULL, COMMON_ARGS);
+	char	*bpu = extract_uniques(pb, nb, NULL, COMMON_ARGS);
 
 	// Coalesce non-uniques together
 	if (bpu > pb) {
@@ -650,7 +657,7 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 	// First sort our candidate work-space chunk
 	stable_sort(a, na, COMMON_ARGS);
 
-	ws = extract_uniques(a, na, COMMON_ARGS);
+	ws = extract_uniques(a, na, NULL, COMMON_ARGS);
 	nw = (pr - ws) / es;
 	na = na - nw;
 
@@ -681,8 +688,8 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 		// Merge old workspace with new
 		ripple_merge_in_place(ws, nws, pr, COMMON_ARGS);
 
-		// We may have picked up new duplicates
-		nws = extract_uniques(ws, nw + nna, COMMON_ARGS);
+		// We may have picked up new duplicates.  Separate them
+		nws = extract_uniques(ws, nw + nna, NULL, COMMON_ARGS);
 
 		// Merge original duplicates with new ones
 		if ((nws > ws) && (ws > a))
@@ -721,10 +728,9 @@ fim_stable_sort(char * const a, const size_t n, COMMON_PARAMS)
 #pragma GCC diagnostic pop
 
 void
-fim_sort(char *a, const size_t n, const size_t es, const int (*is_lt)(const void *, const void *))
+fim_sort(char *a, const size_t n, const size_t es,
+	 const int (*is_lt)(const void *, const void *))
 {
-	char	*workspace = NULL;
-	size_t	worksize = 0;
 	int	swaptype;
 
 	SWAPINIT(a, es);
