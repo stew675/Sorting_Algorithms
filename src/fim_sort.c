@@ -11,6 +11,7 @@ extern	void	print_array(void *a, size_t n);
 extern	void	print_value(void *a);
 extern	uint64_t	numcmps;
 
+// Handy defines to keep code looking cleaner
 #define	COMMON_PARAMS	const size_t es, const int swaptype, const int (*is_lt)(const void *, const void *)
 #define	COMMON_ARGS	es, swaptype, is_lt
 
@@ -538,7 +539,6 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 
 // Designed for efficiently processing smallish sets of items
 // Note that the last item is always assumed to be unique
-// TODO - give hints from caller for existing duplicate runs
 static char *
 extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 {
@@ -550,7 +550,7 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 		ph = pe;
 
 	// Process everything up to the hints pointer
-	for (char *pa = a + es; pa < pe; pa += es) {
+	for (char *pa = a + es; pa < ph; pa += es) {
 		if (is_lt(pa - es, pa))
 			continue;
 
@@ -559,7 +559,7 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 		char *dp = pa - es;
 
 		// Now find the end of the run of duplicates
-		for (pa += es; (pa < pe) && !is_lt(pa - es, pa); pa += es);
+		for (pa += es; (pa < ph) && !is_lt(pa - es, pa); pa += es);
 		pa -= es;
 
 		// pa now points at the last item of the duplicate run
@@ -580,13 +580,18 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 		pa += es;
 	}
 
+	if (ph < pe) {
+		// Everything ph - es, to pe - es is a duplicate
+		_swab(pu, ph - es, pe - es, es, swaptype);
+		pu += (pe - ph);
+	}
+
 	return pu;
 } // extract_unique_sub
 
 
 // Assumptions:
 // - The list we're passed is already sorted
-// TODO - give hints from caller for existing duplicate runs
 static char *
 extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 {
@@ -619,9 +624,12 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 	na = (pb - pa) / es;
 	size_t	nb = n - na;
 
+	if (hints < pb)
+		hints = pe;
+
 	// Note that there is ALWAYS at least one unique to be found
 	char	*apu = extract_uniques(pa, na, ps, COMMON_ARGS);
-	char	*bpu = extract_uniques(pb, nb, NULL, COMMON_ARGS);
+	char	*bpu = extract_uniques(pb, nb, hints, COMMON_ARGS);
 
 	// Coalesce non-uniques together
 	if (bpu > pb) {
@@ -662,7 +670,6 @@ fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 	ws = extract_uniques(pa, na, NULL, COMMON_ARGS);
 	nw = (pr - ws) / es;
 	na = na - nw;
-
 	// PA->WS is pointing at (sorted) non-uniques
 	// WS->PR is a set of uniques we can use as workspace
 	// PR->PE is everything else that we still need to sort
