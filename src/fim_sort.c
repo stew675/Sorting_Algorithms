@@ -543,14 +543,15 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 
 
 #if 0
+
 // Classic bottom-up merge sort
 static void
 stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 {
-#define	STABLE_UNIT_SIZE 16
+#define	STABLE_UNIT_SIZE 24
 
 	// Handle small array size inputs with insertion sort
-	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)));
+	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)))
 		return fim_insert_sort(pa, n, COMMON_ARGS);
 
 	char	*pe = pa + (n * es);
@@ -856,29 +857,27 @@ void
 fim_sort(char *a, const size_t n, const size_t es,
 	 const int (*is_lt)(const void *, const void *))
 {
+	int	swaptype = get_swap_type(a, es);
+
 #if 0
-	// 8 appears to be optimal
-	size_t	nw = n / 8;
+	size_t	nw = n / 8;		// 8 appears to be optimal
 	char	*ws = malloc(nw * es);
 #else
 	size_t	nw = 0;
 	char	*ws = NULL;
 #endif
 
-	int	swaptype = get_swap_type(a, es);
-
-	// SWAPINIT(a, es);
-
-	// printf("swaptype = %d\n", swaptype);
-
-//	stable_sort(a, n, COMMON_ARGS);
+#if 1
 	if (ws) {
 		fim_base_sort(a, n, ws, nw, COMMON_ARGS);
 		free(ws);
 	} else {
-		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
-//		fim_stable_sort(a, n, COMMON_ARGS);
+//		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
+		fim_stable_sort(a, n, COMMON_ARGS);
 	}
+#else
+	stable_sort(a, n, COMMON_ARGS);
+#endif
 //	printf("n1 = %ld, n2 = %ld, n3 = %ld\n", n1, n2, n3);
 //	print_array(a, n);
 } // fim_sort
