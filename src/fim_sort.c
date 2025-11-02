@@ -35,15 +35,16 @@
 #define	STABLE_WSRATIO		19
 
 
-extern	uint64_t	numcmps, numswaps;
-
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
+extern	uint64_t	numcmps, numswaps;
 size_t	n1 = 0, n2 = 0, n3 = 0;
-// Handy defines to keep code looking cleaner
+
 
 #if 1
+// Handy defines to keep code looking cleaner
+
 #define	COMMON_ARGS	es, swaptype, is_lt
 #define	COMMON_PARAMS	const size_t es, int swaptype, const int (*is_lt)(const void *, const void *)
 
@@ -112,6 +113,7 @@ get_swap_type (void *const pbase, size_t size)
 } // get_swap_type
 
 #define	TMPVAR
+
 #else
 #if 1
 #include "swap.h"
@@ -429,9 +431,6 @@ fim_merge_using_workspace(char *a, const size_t na, char *b, const size_t nb,
 {
 	TMPVAR
 
-	// Make sure our caller didn't screw up
-	assert(nw >= na);
-
 	// Check if we need to do anything at all!
 	if (!is_lt(b, b - es))
 		return;
@@ -526,6 +525,7 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 		if (na < 4)
 			na = 4;
 
+		char	*pe = pa + (n * es);
 		char	*pb = pa + (na * es);
 		size_t	nb = n - na;
 
@@ -536,8 +536,8 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 		fim_base_sort(pa, na, NULL, 0, COMMON_ARGS);
 
 		// Now merge them together
-//		split_merge_in_place(pa, pb, pa + n * es);
-		ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
+//		split_merge_in_place(pa, pb, pe);
+		ripple_merge_in_place(pa, pb, pe, COMMON_ARGS);
 	}
 } // fim_base_sort
 
@@ -605,18 +605,24 @@ stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 	size_t	na = n / SKEW;
 	size_t	nb = n - na;
 	char	*pb = pa + na * es;
+	char	*pe = pa + (n * es);
 
 	stable_sort(pa, na, COMMON_ARGS);
 	stable_sort(pb, nb, COMMON_ARGS);
 
-//	split_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
-	ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
+//	split_merge_in_place(pa, pb, pe, COMMON_ARGS);
+	ripple_merge_in_place(pa, pb, pe, COMMON_ARGS);
 } // stable_sort
 #endif
 
 
 // Designed for efficiently processing smallish sets of items
 // Note that the last item is always assumed to be unique
+// Returns a pointer to the list of unique items positioned
+// to the right-side of the array.  All duplicates are located
+// at the start of the array (a)
+//  A -> PU = Duplicates
+// PU -> PE = Unique items
 static char *
 extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 {
@@ -668,6 +674,12 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 } // extract_unique_sub
 
 
+// Returns a pointer to the list of unique items positioned
+// to the right-side of the array.  All duplicates are located
+// at the start of the array (a)
+//  A -> PU = Duplicates
+// PU -> PE = Unique items
+//
 // Assumptions:
 // - The list we're passed is already sorted
 static char *
@@ -864,8 +876,8 @@ fim_sort(char *a, const size_t n, const size_t es,
 		fim_base_sort(a, n, ws, nw, COMMON_ARGS);
 		free(ws);
 	} else {
-//		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
-		fim_stable_sort(a, n, COMMON_ARGS);
+		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
+//		fim_stable_sort(a, n, COMMON_ARGS);
 	}
 //	printf("n1 = %ld, n2 = %ld, n3 = %ld\n", n1, n2, n3);
 //	print_array(a, n);
