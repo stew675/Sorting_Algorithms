@@ -419,6 +419,81 @@ ripple_pop:
 } // ripple_merge_in_place
 
 
+// Top-down merge sort with a bias to smaller left-side arrays as
+// this appears to help the in-place merge algorithm a little bit
+// This makes it a hair faster than the bottom-up merge
+static void
+stable_sort(char *pa, const size_t n, COMMON_PARAMS)
+{
+	// Handle small array size inputs with insertion sort
+	// Ensure there's no way na and nb could be zero
+	if ((n <= INSERT_SORT_MAX) || (n <= SKEW))
+		return fim_insert_sort(pa, n, COMMON_ARGS);
+
+	size_t	na = n / SKEW;
+	size_t	nb = n - na;
+	char	*pb = pa + na * es;
+	char	*pe = pa + (n * es);
+
+	stable_sort(pa, na, COMMON_ARGS);
+	stable_sort(pb, nb, COMMON_ARGS);
+
+//	split_merge_in_place(pa, pb, pe, COMMON_ARGS);
+	ripple_merge_in_place(pa, pb, pe, COMMON_ARGS);
+} // stable_sort
+
+
+#if 0
+// Classic bottom-up merge sort
+static void
+stable_sort(char *pa, const size_t n, COMMON_PARAMS)
+{
+#define	STABLE_UNIT_SIZE 24
+
+	// Handle small array size inputs with insertion sort
+	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)))
+		return fim_insert_sort(pa, n, COMMON_ARGS);
+
+	char	*pe = pa + (n * es);
+	TMPVAR
+
+	do {
+		size_t	bound = n - (n % STABLE_UNIT_SIZE);
+		char	*bpe = pa + (bound * es);
+
+		// First just do insert sorts on all with size STABLE_UNIT_SIZE
+		for (char *pos = pa; pos != bpe; pos += (es * STABLE_UNIT_SIZE)) {
+			char	*stop = pos + (es * STABLE_UNIT_SIZE);
+			for (char *ta = pos + es, *tb; ta != stop; ta += es)
+				for (tb = ta; tb != pos && is_lt(tb, tb - es); tb -= es)
+					swap(tb, tb - es);
+		}
+
+		// Insert sort any remainder
+		if (n - bound)
+			fim_insert_sort(bpe, n - bound, COMMON_ARGS);
+	} while (0);
+
+	for (size_t size = STABLE_UNIT_SIZE; size < n; size += size) {
+		char	*stop = pa + ((n - size) * es);
+		for (char *pos1 = pa; pos1 < stop; pos1 += (size * es * 2)) {
+			char *pos2 = pos1 + (size * es);
+			char *pos3 = pos1 + (size * es * 2);
+
+			if (pos3 > pe)
+				pos3 = pe;
+
+			if (pos2 < pe)
+				ripple_merge_in_place(pos1, pos2, pos3, COMMON_ARGS);
+		}
+	}
+#undef STABLE_UNIT_SIZE
+} // stable_sort
+#endif
+
+
+// Designed for efficiently processing smallish sets of items
+// Note that the last item is always assumed to be unique
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
@@ -542,83 +617,6 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 } // fim_base_sort
 
 
-#if 0
-
-// Classic bottom-up merge sort
-static void
-stable_sort(char *pa, const size_t n, COMMON_PARAMS)
-{
-#define	STABLE_UNIT_SIZE 24
-
-	// Handle small array size inputs with insertion sort
-	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)))
-		return fim_insert_sort(pa, n, COMMON_ARGS);
-
-	char	*pe = pa + (n * es);
-	TMPVAR
-
-	do {
-		size_t	bound = n - (n % STABLE_UNIT_SIZE);
-		char	*bpe = pa + (bound * es);
-
-		// First just do insert sorts on all with size STABLE_UNIT_SIZE
-		for (char *pos = pa; pos != bpe; pos += (es * STABLE_UNIT_SIZE)) {
-			char	*stop = pos + (es * STABLE_UNIT_SIZE);
-			for (char *ta = pos + es, *tb; ta != stop; ta += es)
-				for (tb = ta; tb != pos && is_lt(tb, tb - es); tb -= es)
-					swap(tb, tb - es);
-		}
-
-		// Insert sort any remainder
-		if (n - bound)
-			fim_insert_sort(bpe, n - bound, COMMON_ARGS);
-	} while (0);
-
-	for (size_t size = STABLE_UNIT_SIZE; size < n; size += size) {
-		char	*stop = pa + ((n - size) * es);
-		for (char *pos1 = pa; pos1 < stop; pos1 += (size * es * 2)) {
-			char *pos2 = pos1 + (size * es);
-			char *pos3 = pos1 + (size * es * 2);
-
-			if (pos3 > pe)
-				pos3 = pe;
-
-			if (pos2 < pe)
-				ripple_merge_in_place(pos1, pos2, pos3, COMMON_ARGS);
-		}
-	}
-#undef STABLE_UNIT_SIZE
-} // stable_sort
-
-#else
-
-// Top-down merge sort with a bias to smaller left-side arrays as
-// this appears to help the in-place merge algorithm a little bit
-// This makes it a hair faster than the bottom-up merge
-static void
-stable_sort(char *pa, const size_t n, COMMON_PARAMS)
-{
-	// Handle small array size inputs with insertion sort
-	// Ensure there's no way na and nb could be zero
-	if ((n <= INSERT_SORT_MAX) || (n <= SKEW))
-		return fim_insert_sort(pa, n, COMMON_ARGS);
-
-	size_t	na = n / SKEW;
-	size_t	nb = n - na;
-	char	*pb = pa + na * es;
-	char	*pe = pa + (n * es);
-
-	stable_sort(pa, na, COMMON_ARGS);
-	stable_sort(pb, nb, COMMON_ARGS);
-
-//	split_merge_in_place(pa, pb, pe, COMMON_ARGS);
-	ripple_merge_in_place(pa, pb, pe, COMMON_ARGS);
-} // stable_sort
-#endif
-
-
-// Designed for efficiently processing smallish sets of items
-// Note that the last item is always assumed to be unique
 // Returns a pointer to the list of unique items positioned
 // to the right-side of the array.  All duplicates are located
 // at the start of the array (a)
