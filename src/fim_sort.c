@@ -5,16 +5,10 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdbool.h>
-#include "swap.h"
+#include <errno.h>
+#include <limits.h>
 
-extern	void	print_array(void *a, size_t n);
-extern	void	print_value(void *a);
-extern	uint64_t	numcmps;
-
-// Handy defines to keep code looking cleaner
-#define	COMMON_PARAMS	const size_t es, const int swaptype, const int (*is_lt)(const void *, const void *)
-#define	COMMON_ARGS	es, swaptype, is_lt
-
+//				TUNING KNOBS!
 // INSERT_SORT_MAX defines the number of items below which we'll resort to
 // simply using Insertion Sort.  Anything from 8-30 seems reasonable, with
 // values around 20+ giving best speeds at the expense of more swaps/compares
@@ -40,6 +34,102 @@ extern	uint64_t	numcmps;
 // from 1.5x to 3x of what WSRATIO is set to,
 #define	STABLE_WSRATIO		19
 
+
+extern	uint64_t	numcmps, numswaps;
+
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+
+size_t	n1 = 0, n2 = 0, n3 = 0;
+// Handy defines to keep code looking cleaner
+
+#if 1
+#define	COMMON_ARGS	es, swaptype, is_lt
+#define	COMMON_PARAMS	const size_t es, int swaptype, const int (*is_lt)(const void *, const void *)
+
+
+static inline void
+__memswap(void * restrict p1, void * restrict p2, size_t n)
+{
+	enum { SWAP_GENERIC_SIZE = 32 };
+
+	unsigned char tmp[SWAP_GENERIC_SIZE];
+
+	while (n > SWAP_GENERIC_SIZE) {
+		mempcpy(tmp, p1, SWAP_GENERIC_SIZE);
+		p1 = __mempcpy(p1, p2, SWAP_GENERIC_SIZE);
+		p2 = __mempcpy(p2, tmp, SWAP_GENERIC_SIZE);
+		n -= SWAP_GENERIC_SIZE;
+	}
+	while (n > 0) {
+		unsigned char t = ((unsigned char *)p1)[--n];
+		((unsigned char *)p1)[n] = ((unsigned char *)p2)[n];
+		((unsigned char *)p2)[n] = t;
+	}
+} // __memswap
+
+enum swap_type_t {
+	SWAP_WORDS_64 = 0,
+	SWAP_WORDS_32,
+	SWAP_VOID_ARG,
+	SWAP_BYTES
+};
+
+static inline void
+swapfunc(void * restrict va, void * restrict vb, size_t size, int swaptype)
+{
+	numswaps++;
+	if (swaptype == SWAP_WORDS_64) {
+		uint64_t t = *(uint64_t *)va;
+		*(uint64_t *)va = *(uint64_t *)vb;
+		*(uint64_t *)vb = t;
+	} else if (likely(swaptype == SWAP_WORDS_32)) {
+		uint32_t t = *(uint32_t *)va;
+		*(uint32_t *)va = *(uint32_t *)vb;
+		*(uint32_t *)vb = t;
+	} else {
+		__memswap (va, vb, size);
+	}
+} // swapfunc
+
+#define	swap(a, b)	swapfunc(a, b, es, swaptype)
+
+static enum swap_type_t
+get_swap_type (void *const pbase, size_t size)
+{
+	if ((size & (sizeof(uint32_t) - 1)) == 0) {
+		if (((uintptr_t)pbase) % __alignof__(uint32_t) == 0) {
+			if (size == sizeof(uint32_t)) {
+				return SWAP_WORDS_32;
+			} else if (size == sizeof(uint64_t)) {
+				if (((uintptr_t)pbase) % __alignof__(uint64_t) == 0) {
+					return SWAP_WORDS_64;
+				}
+			}
+		}
+	}
+	return SWAP_BYTES;
+} // get_swap_type
+
+#define	TMPVAR
+#else
+#if 1
+#include "swap.h"
+#define	COMMON_ARGS	es, swaptype, is_lt
+#define	COMMON_PARAMS	const size_t es, const int swaptype, const int (*is_lt)(const void *, const void *)
+#define	TMPVAR		WORD t;
+#else
+#include "glibc_swap.h"
+#define	COMMON_PARAMS	const size_t es, enum swap_type_t swaptype, const int (*is_lt)(const void *, const void *)
+#define	SWAPINIT(a, b)	get_swap_type(a, b)
+#define	swap(a, b)	do_swap(a, b, es, swaptype)
+typedef	uint64_t	WORD;
+#endif
+#endif
+
+extern	void		print_array(void *a, size_t n);
+extern	void		print_value(void *a);
+
 // Swaps two contiguous blocks of differing lengths in place efficiently
 // Basically implements the well known block Rotate() functionality
 // Takes advantage of any vectorization in the optimized memcpy library functions
@@ -64,10 +154,10 @@ swap_blk(char *a, char *b, size_t n)
 // Swaps two contiguous blocks of differing lengths in place efficiently
 // Basically implements the well known block Rotate() functionality
 static void
-_swab(char *a, char *b, char *e, const size_t es, const int swaptype)
+_swab(char *a, char *b, char *e, COMMON_PARAMS)
 {
 	size_t	gapa = b - a, gapb = e - b;
-	WORD	t;
+	TMPVAR
 
 	while (gapa && gapb) {
 		if (gapa < gapb) {
@@ -90,16 +180,7 @@ static void
 fim_insert_sort(char *pa, const size_t n, COMMON_PARAMS)
 {
 	char	*pe = pa + n * es, *ta, *tb;
-	WORD	t;
-
-	if (n == 1)
-		return;
-
-	if (n == 2) {
-		if (is_lt(pa + es, pa))
-			swap(pa + es, pa);
-		return;
-	}
+	TMPVAR
 
 	for (ta = pa + es; ta != pe; ta += es)
 		for (tb = ta; tb != pa && is_lt(tb, tb - es); tb -= es)
@@ -113,7 +194,7 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb,
 			 char * restrict pe, COMMON_PARAMS)
 {
 	char	*tb = pe;
-	WORD	t;
+	TMPVAR
 
 	do {
 		pe = tb - es;  tb = pb - es;  pb = tb;
@@ -137,7 +218,7 @@ split_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
 	_Alignas(64) char *_stack[SPLIT_STACK_SIZE * 2];
 	char	**stack = _stack, *rp, *spa;
 	size_t	split_size, bs;
-	WORD	t;	// Temporary variable for swapping
+	TMPVAR
 
 	// For whoever calls us, check if we need to do anything at all
 	if (!is_lt(pb, pb - es))
@@ -212,7 +293,7 @@ ripple_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
 	char	**maxstack, **stack = _stack;
 	char	*rp, *sp;	// Ripple-Pointer, and Split Pointer
 	size_t	bs;		// Byte-wise block size of pa->pb
-	WORD	t;		// Temporary variable for swapping
+	TMPVAR
 
 	maxstack = _stack + (sizeof(_stack) / sizeof(*_stack));
 
@@ -223,7 +304,8 @@ ripple_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
 ripple_again:
 	// If our stack is about to over-flow, move to use the slower, but more
 	// resilient, algorithm that handles degenerate scenarios without issue
-	if (stack == maxstack) {
+	// If the stack is large enough, this should almost never ever happen
+	if (unlikely(stack == maxstack)) {
 		split_merge_in_place(pa, pb, pe, COMMON_ARGS);
 		goto ripple_pop;
 	}
@@ -238,9 +320,7 @@ ripple_again:
 			pb += es;
 		} while (pb != pe && is_lt(pb, pa));
 		goto ripple_pop;
-	}
-
-	if ((pb + es) == pe) {
+	} else if ((pb + es) == pe) {
 		do {
 			swap(pb, pb - es);
 			pb -= es;
@@ -270,7 +350,8 @@ ripple_again:
 	// Split the block up, and keep trying with the remainders
 
 	// Handle scenario where our block cannot fit within what remains
-	if (rp > pe) {
+	// This occurs about 3% of the time, hence the use of unlikely
+	if (unlikely(rp > pe)) {
 		if (pb == pe)
 			goto ripple_pop;
 		bs = pe - pb; // Adjust the block size for the end limit
@@ -314,15 +395,14 @@ ripple_again:
 	// of the array we're merging into.
 	// PA->SP is one sorted array, and SP->PB is another. PB is a hard upper
 	// limit on the search space for this merge, so it's used as the new PE
+	bs = (rp != pe) && is_lt(rp, rp - es);	// <- Oddly enough, this helps
 	if (is_lt(sp, sp - es)) {
 		if (rp != pe)
 			RIPPLE_STACK_PUSH(pb, rp, pe);
 		pe = pb;
 		pb = sp;
 		goto ripple_again;
-	}
-
-	if ((rp != pe) && is_lt(rp, rp - es)) {
+	} else if (bs) {
 		pa = pb;
 		pb = rp;
 		goto ripple_again;
@@ -347,7 +427,7 @@ static void
 fim_merge_using_workspace(char *a, const size_t na, char *b, const size_t nb,
 			  char *w, const size_t nw, COMMON_PARAMS)
 {
-	WORD	t;
+	TMPVAR
 
 	// Make sure our caller didn't screw up
 	assert(nw >= na);
@@ -467,14 +547,14 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 static void
 stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 {
-#define	STABLE_UNIT_SIZE 10
+#define	STABLE_UNIT_SIZE 16
 
 	// Handle small array size inputs with insertion sort
 	if ((n <= INSERT_SORT_MAX) || (n < (STABLE_UNIT_SIZE * 2)));
 		return fim_insert_sort(pa, n, COMMON_ARGS);
 
 	char	*pe = pa + (n * es);
-	WORD	t;
+	TMPVAR
 
 	do {
 		size_t	bound = n - (n % STABLE_UNIT_SIZE);
@@ -518,18 +598,16 @@ static void
 stable_sort(char *pa, const size_t n, COMMON_PARAMS)
 {
 	// Handle small array size inputs with insertion sort
-	if ((n <= INSERT_SORT_MAX) || (n < 8))
+	// Ensure there's no way na and nb could be zero
+	if ((n <= INSERT_SORT_MAX) || (n <= SKEW))
 		return fim_insert_sort(pa, n, COMMON_ARGS);
 
 	size_t	na = n / SKEW;
 	size_t	nb = n - na;
 	char	*pb = pa + na * es;
 
-	if (na > 1)
-		stable_sort(pa, na, COMMON_ARGS);
-
-	if (nb > 1)
-		stable_sort(pb, nb, COMMON_ARGS);
+	stable_sort(pa, na, COMMON_ARGS);
+	stable_sort(pb, nb, COMMON_ARGS);
 
 //	split_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
 	ripple_merge_in_place(pa, pb, pa + (n * es), COMMON_ARGS);
@@ -543,7 +621,7 @@ static char *
 extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 {
 	char	*pu = a;	// Points to list of unique items
-	WORD	t;
+	TMPVAR
 
 	// Sanitize our hints pointer
 	if (ph == NULL)
@@ -567,7 +645,7 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 		if ((pa - dp) > es) {
 			// Multiple items.  swab them down
 			if (dp > pu)
-				_swab(pu, dp, pa, es, swaptype);
+				_swab(pu, dp, pa, COMMON_ARGS);
 			pu += (pa - dp);
 		} else {
 			// Single item, just ripple it down
@@ -581,8 +659,8 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 	}
 
 	if (ph < pe) {
-		// Everything ph - es, to pe - es is a duplicate
-		_swab(pu, ph - es, pe - es, es, swaptype);
+		// Everything (ph - es) to (pe - es) is a duplicate
+		_swab(pu, ph - es, pe - es, COMMON_ARGS);
 		pu += (pe - ph);
 	}
 
@@ -604,7 +682,8 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 	if (hints == NULL)
 		hints = pe;
 
-	// Divide and conquer!
+	// Divide and conquer!  This algorithm appears to operate in close
+	// to an O(n) time complexity, albeit with a moderately high K factor
 	char	*pa = a;
 	size_t	na = (n + 3) >> 2;	// Looks to be about right
 	char	*pb = pa + (na * es);
@@ -633,7 +712,7 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 
 	// Coalesce non-uniques together
 	if (bpu > pb) {
-		_swab(apu, pb, bpu, es, swaptype);
+		_swab(apu, pb, bpu, COMMON_ARGS);
 	}
 	pb = apu + (bpu - pb);
 
@@ -642,6 +721,13 @@ extract_uniques(char * const a, const size_t n, char *hints, COMMON_PARAMS)
 } // extract_uniques
 
 
+// This essentially operates as a "front end" to the main ripple-merge-sort
+// sequence.  Its primary role is to extract unique values from the main
+// data set, which in turn allows us to use these as a workspace to pass
+// to the main algorithm.  Doing so preserves sort stability.  While it is
+// generating the set of uniques, it is also still sorting by generating a
+// sorted set of duplicates that were disqualified, and this allows it to
+// try extra hard to find a working set as doing so isn't "time wasted".
 static void
 fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 {
@@ -670,6 +756,7 @@ fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 	ws = extract_uniques(pa, na, NULL, COMMON_ARGS);
 	nw = (pr - ws) / es;
 	na = na - nw;
+
 	// PA->WS is pointing at (sorted) non-uniques
 	// WS->PR is a set of uniques we can use as workspace
 	// PR->PE is everything else that we still need to sort
@@ -766,8 +853,11 @@ fim_sort(char *a, const size_t n, const size_t es,
 	char	*ws = NULL;
 #endif
 
-	int	swaptype;
-	SWAPINIT(a, es);
+	int	swaptype = get_swap_type(a, es);
+
+	// SWAPINIT(a, es);
+
+	// printf("swaptype = %d\n", swaptype);
 
 //	stable_sort(a, n, COMMON_ARGS);
 	if (ws) {
@@ -777,5 +867,6 @@ fim_sort(char *a, const size_t n, const size_t es,
 //		fim_base_sort(a, n, NULL, 0, COMMON_ARGS);
 		fim_stable_sort(a, n, COMMON_ARGS);
 	}
+//	printf("n1 = %ld, n2 = %ld, n3 = %ld\n", n1, n2, n3);
 //	print_array(a, n);
 } // fim_sort
