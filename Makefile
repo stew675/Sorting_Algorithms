@@ -62,8 +62,9 @@ BIN=ts
 ######################################################################################
 
 CC= gcc
+#CC=clang
 OPT_FLAGS= -O2 -march=native -mtune=native -falign-functions=32 -falign-loops=16
-DEBUG_FLAGS=  -Wno-incompatible-pointer-types  -Wno-compare-distinct-pointer-types
+DEBUG_FLAGS=  -Wno-incompatible-pointer-types  # -Wno-compare-distinct-pointer-types
 LIBS=
 
 ######################################################################################
