@@ -1,3 +1,75 @@
+//				RIPPLESORT
+//
+// Author: Stew Forster (stew675@gmail.com)	Copyright (C) 2017-2025
+//
+// This is my implementation of an (O)nlogn in-place merge-sort algorithm
+// There is (almost) nothing new under the sun, and this is certainly an
+// evolution of the work of many others.  It has its roots in the following:
+//
+// - Merge Sort
+// - Insertion Sort
+// - Block Sort
+// - Grail Sort
+// - Powermerge - https://koreascience.kr/article/CFKO200311922203087.pdf
+//
+// This originally started out with me experimenting with sorting algorithms,
+// and I thought that I had stumbled onto something new, but all I'd done was
+// independently rediscover Powermerge (see link above)
+// Here's a link to a StackOverflow answer I gave many years back some time
+// after I'd found my version of the solution:
+// https://stackoverflow.com/a/68603446/16534062
+//
+// Still, Powermerge has a number of glaring flaws, which I suspect is why
+// it hasn't been widely adopted, and the world has more or less coalesced
+// around Block Sort and its variants like GrailSort, and so on.  Its biggest
+// issue is that recursion stack depth is unbounded, and it's rather easy to
+// construct degenerate scenarios where the call stack will overflow in short
+// order.
+//
+// I worked to solve those issues, but the code grew in complexity, and then
+// started to slow down to point of losing all its benefits.  While messing
+// about with solutions, I stumbled across what I call SplitMergeInPlace().
+// To date I've not found an algorithm that implements exactly what it does,
+// but it does have a number of strong similarities to what BlockSort does.
+//
+// Unlike RippleMerge(), SplitMerge() doesn't bury itself in the details of
+// finding the precise optimal place to split a block being merged, but rather
+// uses a simple division algorithm to choose where to split.  In essence it
+// takes a "divide and conquer" approach to the problem of merging two arrays
+// together in place, and deposits fixed sized chunks, saves where that chunk
+// is on a work stack, and then continues depositing chunks.  When all chunks
+// are placed, it goes back and splits each one up again in turn into smaller
+// chunks, and continues.
+//
+// In doing so, it achieves a stack requirement of 16*log16(N) tag points, where
+// N is the size of the left side array being merged.  The size of the right-side
+// array doesn't matter to the SplitMerge algorithm.  This stack growth is very
+// slow.  A stack of 160 tags can account for over 10^12 items, and a stack
+// of 240 tags can track over 10^18 items.
+//
+// SplitMerge() is about 30% slower than RippleMerge() in practise though, but
+// it makes for an excellent fallback to the faster RippleMerge() algorithm
+// for when RippleMerge() gets lost in the weeds of chopping up chunks and runs
+// its work stack out of memory.
+//
+// I then read about how GrailSort and BlockSort use unique items as a work
+// space, which is what allows those algorithms to achieve sort stability.  I
+// didn't look too deeply into how either of those algorithms extract unique
+// items, preferring the challenge of coming up with my own solution to that
+// problem.  extract_uniques() is my solution that also takes a divide and
+// conquer approach to split an array of items into uniques and duplicates,
+// and then uses a variant of the Gries-Mills Block Swap algorithm to quickly
+// move runs of duplicates into place:
+//
+// Ref: https://en.wikipedia.org/wiki/Block_swap_algorithms
+//
+// extract_uniques() moves all duplicates, which are kept in sorted order, to
+// the left side of the main array, which creates a sorted block that can be
+// merged in at the end.  When enough unique items are gathered, they are then
+// used as the scratch work-space to invoke an adaptive merge algorithm to
+// efficiently merge that which remains.
+
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,6 +81,7 @@
 #include <limits.h>
 
 //				TUNING KNOBS!
+//
 // INSERT_SORT_MAX defines the number of items below which we'll resort to
 // simply using Insertion Sort.  Anything from 8-30 seems reasonable, with
 // values around 20+ giving best speeds at the expense of more swaps/compares
@@ -62,7 +135,6 @@
 
 extern	void		print_array(void *a, size_t n);
 extern	void		print_value(void *a);
-extern	uint64_t	numcmps, numswaps;
 static	size_t		n1 = 0, n2 = 0, n3 = 0;
 
 
@@ -73,6 +145,8 @@ static	size_t		n1 = 0, n2 = 0, n3 = 0;
 //_____________________________________________________________________________
 // Swap-specific functions. These are a lightly modified version of this code:
 // https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/stdlib/qsort.c
+// I cannot say I'm completely happy with this solution, but it works for now.
+
 static inline void
 memswap(void * restrict p1, void * restrict p2, size_t n)
 {
@@ -103,8 +177,7 @@ enum swap_type_t {
 static inline void
 swapfunc(void * restrict va, void * restrict vb, size_t size, int swaptype)
 {
-	numswaps++;
-	if (swaptype == SWAP_WORDS_64) {
+	if (likely(swaptype == SWAP_WORDS_64)) {
 		uint64_t t = *(uint64_t *)va;
 		*(uint64_t *)va = *(uint64_t *)vb;
 		*(uint64_t *)vb = t;
@@ -210,10 +283,18 @@ insertion_merge_in_place(char * restrict pa, char * restrict pb,
 } // insertion_merge_in_place
 
 
+// This in-place merge algorithm started off life as a variant of RippleMerge
+// below, but I was looking for a way to solve the multiple degenerate scenarios
+// where unbounded stack recursion could occur.  In the end, I couldn't fully
+// solve some of those without making the code complex and branch inefficient.
+//
+//
 static void
 split_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
 {
+// The following #define is where the 16*log16(N) stack growth comes from
 #define	SPLIT_SIZE		(((((pb - pa) / es) + 15) >> 4) * es)
+
 	_Alignas(64) char *_stack[SPLIT_STACK_SIZE * 2];
 	char	**stack = _stack, *rp, *spa;
 	size_t	split_size, bs;
@@ -275,6 +356,15 @@ split_pop:
 } // split_merge_in_place
 
 #if (LOW_STACK == 0)
+// This is what everything is based on, and I call it RippleMerge
+//
+// At its heart, the following algorithm is a variation on PowerMerge that
+// solves a number of PowerMerge's glaring issues with unbounded stack
+// recursion, and other inefficiencies inherent to the base algorithm.
+//
+// This is implemented as an iterative function that uses a work stack to
+// note the location of split points to be revisited later to merge in.
+//
 // Assumes NA and NB are greater than zero
 static void
 ripple_merge_in_place(char *pa, char *pb, char *pe, COMMON_PARAMS)
@@ -616,7 +706,7 @@ fim_base_sort(char * const pa, const size_t n, char * const ws,
 
 // Returns a pointer to the list of unique items positioned
 // to the right-side of the array.  All duplicates are located
-// at the start of the array (a)
+// at the start (left-side) of the array (A)
 //  A -> PU = Duplicates
 // PU -> PE = Unique items
 static char *
@@ -671,7 +761,7 @@ extract_unique_sub(char * const a, char * const pe, char *ph, COMMON_PARAMS)
 
 // Returns a pointer to the list of unique items positioned
 // to the right-side of the array.  All duplicates are located
-// at the start of the array (a)
+// at the start (left-side) of the array (A)
 //  A -> PU = Duplicates
 // PU -> PE = Unique items
 //
