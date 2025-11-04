@@ -809,10 +809,15 @@ fim_stable_sort(char * const pa, const size_t n, COMMON_PARAMS)
 		// We may have picked up new duplicates.  Separate them out
 		nws = extract_uniques(ws, nw + nna, NULL, COMMON_ARGS);
 
+		// Merge original duplicates with new ones.  We're essentially
+		// sorting the array by extracting duplicates!
 		if ((nws > ws) && (ws > pa))
 			split_merge_in_place(pa, ws, nws, COMMON_ARGS);
 #else
 		ripple_merge_in_place(ws, nws, pr, COMMON_ARGS);
+
+		// We may have picked up new duplicates.  Separate them out
+		nws = extract_uniques(ws, nw + nna, NULL, COMMON_ARGS);
 
 		// Merge original duplicates with new ones.  We're essentially
 		// sorting the array by extracting duplicates!
